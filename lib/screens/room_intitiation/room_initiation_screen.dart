@@ -4,6 +4,7 @@ import 'central_button.dart';
 import 'colors_room.dart';
 import 'top_status_bar.dart';
 import 'header.dart';
+import 'background_watermark.dart';
 
 class RoomInitiationScreen extends StatefulWidget {
   const RoomInitiationScreen({super.key});
@@ -100,7 +101,7 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
         child: Stack(
           children: [
             // Background watermark symbol
-            // const BackgroundWatermark(),
+            const BackgroundWatermark(),
 
             Column(
               children: [
