@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'colors_room.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Text(
+        Text(
           'ROOM INITIATION',
-          style: TextStyle(
-            fontSize: 26,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 30,
             fontWeight: FontWeight.w900,
             color: Colors.white,
             letterSpacing: 2,
@@ -18,11 +19,10 @@ class Header extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'PREPARE FOR SPATIAL DISPLACEMENT',
-          style: TextStyle(
-            fontSize: 10,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 12,
             letterSpacing: 3,
             color: kCyan.withOpacity(0.7),
-            fontFamily: 'monospace',
           ),
         ),
       ],
