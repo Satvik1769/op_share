@@ -8,16 +8,18 @@ import 'colors_room.dart';
 
 class StatusText extends StatelessWidget {
   final String text;
+  final double letterSpacing;
+  final double fontSize;
   final bool bright;
-  const StatusText(this.text, {super.key, this.bright = false});
+  const StatusText(this.text ,{super.key, this.bright = false, this.letterSpacing = 1.2, this.fontSize = 9 });
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 9,
-        letterSpacing: 1.2,
+        fontSize: fontSize,
+        letterSpacing: letterSpacing,
         fontFamily: 'monospace',
         color: bright ? kCyan : kCyan.withOpacity(0.5),
         fontWeight: bright ? FontWeight.bold : FontWeight.normal,
@@ -43,9 +45,9 @@ class TopStatusBar extends StatelessWidget {
             StatusText('REGION: SECTOR_7'),
           ]),
           Row(children: [
-            const Icon(Icons.radio_button_checked, color: kCyan, size: 16),
+             Image.asset("assets/images/logo.png", width: 16, height: 16),
             const SizedBox(width: 6),
-            StatusText('ROOM', bright: true),
+            StatusText('ROOM',letterSpacing: 3, fontSize: 14 ,bright: true),
           ]),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             StatusText('OPE-OPE V.2.4'),
