@@ -5,6 +5,7 @@ import 'colors_room.dart';
 import 'top_status_bar.dart';
 import 'header.dart';
 import 'background_watermark.dart';
+import '../scanning_room/scanning_room_screen.dart';
 
 class RoomInitiationScreen extends StatefulWidget {
   const RoomInitiationScreen({super.key});
@@ -89,7 +90,12 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
   void _onActivateTap() {
     setState(() => _isScanning = true);
     _scanCtrl.forward(from: 0).then((_) {
-      if (mounted) setState(() => _isScanning = false);
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const RoomActiveScreen()),
+        );
+        setState(() => _isScanning = false);
+      }
     });
   }
 
