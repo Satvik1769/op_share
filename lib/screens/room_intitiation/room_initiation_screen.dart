@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'central_button.dart';
 import 'colors_room.dart';
-import 'background_watermark.dart';
 import 'top_status_bar.dart';
 import 'header.dart';
 
@@ -19,8 +18,6 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
   late final List<AnimationController> _rippleControllers;
   late final List<Animation<double>> _rippleAnimations;
 
-
-  late final Animation<double> _rotationAnim;
 
   // Glitch/pulse for status dot
   late final AnimationController _pulseCtrl;

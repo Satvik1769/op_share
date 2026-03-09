@@ -152,44 +152,6 @@ class CentralButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// DASHED CIRCLE PAINTER
-// ─────────────────────────────────────────────
-class _DashedCirclePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = kCyan.withOpacity(0.3)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-    const dashCount = 40;
-    const dashLength = 0.08;
-    const gapLength = 0.08;
-
-    double angle = 0;
-    const step = (dashLength + gapLength) * pi * 2 / (dashCount * (dashLength + gapLength));
-
-    for (int i = 0; i < dashCount; i++) {
-      final startAngle = angle;
-      final endAngle = angle + dashLength * pi * 2 / dashCount;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        endAngle - startAngle,
-        false,
-        paint,
-      );
-      angle += (dashLength + gapLength) * pi * 2 / dashCount;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ─────────────────────────────────────────────
 // SCAN SWEEP PAINTER
 // ─────────────────────────────────────────────
 class _ScanSweepPainter extends CustomPainter {
