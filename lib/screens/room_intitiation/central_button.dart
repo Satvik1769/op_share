@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 class CentralButton extends StatelessWidget {
   final List<AnimationController> rippleControllers;
   final List<Animation<double>> rippleAnimations;
-  final Animation<double> rotationAnim;
+
   final Animation<double> scanAnim;
   final bool isScanning;
   final VoidCallback onTap;
@@ -14,7 +14,6 @@ class CentralButton extends StatelessWidget {
   const CentralButton({
     required this.rippleControllers,
     required this.rippleAnimations,
-    required this.rotationAnim,
     required this.scanAnim,
     required this.isScanning,
     required this.onTap,
@@ -58,20 +57,6 @@ class CentralButton extends StatelessWidget {
                 },
               );
             }),
-
-            // Outer rotating dashed ring
-            AnimatedBuilder(
-              animation: rotationAnim,
-              builder: (_, __) {
-                return Transform.rotate(
-                  angle: rotationAnim.value,
-                  child: CustomPaint(
-                    size: const Size(outerSize - 10, outerSize - 10),
-                    painter: _DashedCirclePainter(),
-                  ),
-                );
-              },
-            ),
 
             // Scan sweep overlay
             if (isScanning)

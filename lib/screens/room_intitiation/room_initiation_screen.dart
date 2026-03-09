@@ -19,8 +19,7 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
   late final List<AnimationController> _rippleControllers;
   late final List<Animation<double>> _rippleAnimations;
 
-  // Rotation for outer ring
-  late final AnimationController _rotationCtrl;
+
   late final Animation<double> _rotationAnim;
 
   // Glitch/pulse for status dot
@@ -58,13 +57,8 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
       });
     }
 
-    // Slow outer ring rotation
-    _rotationCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    )..repeat();
-    _rotationAnim =
-        Tween<double>(begin: 0, end: 2 * pi).animate(_rotationCtrl);
+
+
 
     // Status dot pulse
     _pulseCtrl = AnimationController(
@@ -88,7 +82,7 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
     for (final c in _rippleControllers) {
       c.dispose();
     }
-    _rotationCtrl.dispose();
+
     _pulseCtrl.dispose();
     _scanCtrl.dispose();
     super.dispose();
@@ -120,7 +114,6 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
                 CentralButton(
                   rippleControllers: _rippleControllers,
                   rippleAnimations: _rippleAnimations,
-                  rotationAnim: _rotationAnim,
                   scanAnim: _scanAnim,
                   isScanning: _isScanning,
                   onTap: _onActivateTap,
