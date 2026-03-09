@@ -3,7 +3,7 @@ import 'colors_room.dart';
 
 
 class BackgroundWatermark extends StatelessWidget {
-  const BackgroundWatermark();
+  const BackgroundWatermark({super.key});
 
   @override
   Widget build(BuildContext context) {

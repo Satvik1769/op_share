@@ -109,7 +109,7 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
         child: Stack(
           children: [
             // Background watermark symbol
-            const BackgroundWatermark(),
+            // const BackgroundWatermark(),
 
             Column(
               children: [
