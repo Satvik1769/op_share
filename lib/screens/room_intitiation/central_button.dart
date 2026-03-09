@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'colors_room.dart';
+import 'package:google_fonts/google_fonts.dart';
 class CentralButton extends StatelessWidget {
   final List<AnimationController> rippleControllers;
   final List<Animation<double>> rippleAnimations;
@@ -21,8 +22,8 @@ class CentralButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double outerSize = 260;
-    const double innerSize = 160;
+    const double outerSize = 500;
+    const double innerSize = 300;
 
     return GestureDetector(
       onTap: onTap,
@@ -105,35 +106,51 @@ class CentralButton extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  Icon(
-                    Icons.radio,
-                    size: 40,
-                    color: kCyan,
-                    shadows: [
-                      Shadow(color: kCyan.withOpacity(0.8), blurRadius: 16),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.radio,
+                        size: 40,
+                        color: kCyan,
+                        shadows: [
+                          Shadow(color: kCyan.withOpacity(0.8), blurRadius: 16),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'ACTIVATE ROOM',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                          color: kCyan,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'TAP TO SCAN',
+                        style: TextStyle(
+                          fontSize: 9,
+                          letterSpacing: 2,
+                          color: kCyan.withOpacity(0.6),
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'ACTIVATE ROOM',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                      color: kCyan,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'TAP TO SCAN',
-                    style: TextStyle(
-                      fontSize: 9,
-                      letterSpacing: 2,
-                      color: kCyan.withOpacity(0.6),
-                      fontFamily: 'monospace',
+                  Positioned(
+                    bottom: 40,
+                    child: Container(
+                      width: 40,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: kCyan.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
                     ),
                   ),
                 ],
@@ -141,17 +158,7 @@ class CentralButton extends StatelessWidget {
             ),
 
             // Bottom dash indicator
-            Positioned(
-              bottom: 12,
-              child: Container(
-                width: 30,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: kCyan.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+
           ],
         ),
       ),
