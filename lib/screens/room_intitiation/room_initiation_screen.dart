@@ -166,7 +166,7 @@ class _StatusCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
         decoration: BoxDecoration(
-          color: kCardBg,
+          color: kCardBg.withOpacity(0.5),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: kBorderDim),
         ),
