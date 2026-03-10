@@ -430,6 +430,9 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                   percent: _broadcastPercent,
                   peersInRange: _peersInRange,
                   speedMbps: _speedMbps,
+                  etaSeconds: ((1.0 - _broadcastCtrl.value) *
+                          _broadcastCtrl.duration!.inSeconds)
+                      .ceil(),
                 )
               else
                 GestureDetector(
@@ -651,12 +654,14 @@ class BroadcastProgressBar extends StatelessWidget {
   final double percent;       // 0–100
   final int peersInRange;
   final double speedMbps;
+  final int etaSeconds;       // remaining seconds, 0 when done
 
   const BroadcastProgressBar({
     super.key,
     required this.percent,
     required this.peersInRange,
     required this.speedMbps,
+    required this.etaSeconds,
   });
 
   @override
@@ -719,6 +724,11 @@ class BroadcastProgressBar extends StatelessWidget {
                   color: kCyan.withOpacity(0.55),
                   fontFamily: 'monospace')),
           Text('${speedMbps.toStringAsFixed(0)} Mb/s',
+              style: TextStyle(
+                  fontSize: 9,
+                  color: kCyan.withOpacity(0.55),
+                  fontFamily: 'monospace')),
+          Text(done ? 'ETA: --' : 'ETA: ${etaSeconds}s',
               style: TextStyle(
                   fontSize: 9,
                   color: kCyan.withOpacity(0.55),
