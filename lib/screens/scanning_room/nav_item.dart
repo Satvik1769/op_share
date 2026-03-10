@@ -9,7 +9,7 @@ class NavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const NavItem(
-      {required this.icon,
+      {super.key, required this.icon,
         required this.label,
         required this.selected,
         required this.onTap});

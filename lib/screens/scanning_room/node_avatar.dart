@@ -7,19 +7,23 @@ import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 class NodeAvatar extends StatelessWidget {
   final RadarNode node;
   final Animation<double> animation;
+  final Size radarSize;
 
-  const NodeAvatar({super.key, required this.node, required this.animation});
+  const NodeAvatar({
+    super.key,
+    required this.node,
+    required this.animation,
+    required this.radarSize,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (_, constraints) {
-      final maxR = min(constraints.maxWidth, constraints.maxHeight) / 2 - 6;
-      final center =
-      Offset(constraints.maxWidth / 2, constraints.maxHeight / 2);
-      final pos = node.position(maxR);
-      final size = node.isOwner ? 52.0 : 44.0;
+    final maxR = min(radarSize.width, radarSize.height) / 2 - 6;
+    final center = Offset(radarSize.width / 2, radarSize.height / 2);
+    final pos = node.position(maxR);
+    final size = node.isOwner ? 52.0 : 44.0;
 
-      return Positioned(
+    return Positioned(
         left: center.dx + pos.dx - size / 2,
         top: center.dy + pos.dy - size / 2,
         child: ScaleTransition(
@@ -65,6 +69,5 @@ class NodeAvatar extends StatelessWidget {
           ]),
         ),
       );
-    });
   }
 }

@@ -5,7 +5,7 @@ import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 
 class PeerListTile extends StatelessWidget {
   final RadarNode node;
-  const PeerListTile({required this.node});
+  const PeerListTile({super.key, required this.node});
 
   @override
   Widget build(BuildContext context) {

@@ -183,11 +183,16 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                     sweepAngle: _radarAnim.value,
                     ringProgress: _ringAnim.value,
                   ),
-                  child: Stack(
-                    children: _visibleNodes
-                        .map((n) =>
-                        NodeAvatar(node: n, animation: _nodesAnim))
-                        .toList(),
+                  child: LayoutBuilder(
+                    builder: (_, constraints) => Stack(
+                      children: _visibleNodes
+                          .map((n) => NodeAvatar(
+                                node: n,
+                                animation: _nodesAnim,
+                                radarSize: constraints.biggest,
+                              ))
+                          .toList(),
+                    ),
                   ),
                 ),
               ),
