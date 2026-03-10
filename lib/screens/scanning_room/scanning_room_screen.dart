@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/scanning_room/target_icon_painter.dart';
 import 'dart:math';
+import '../shambles/shambles_transfer_screen.dart';
 import 'radar_node.dart';
 import 'radar_painter.dart';
 import 'node_avatar.dart';
@@ -109,6 +110,24 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     super.dispose();
   }
 
+  void _goToShambles() {
+    Navigator.of(context).push(PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 600),
+      pageBuilder: (_, __, ___) =>
+          ShamblesTransferScreen(peers: _visibleNodes),
+      transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+              begin: const Offset(0, 0.05), end: Offset.zero)
+              .animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        ),
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,29 +220,31 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
 
           // ── SHAMBLES button ───────────────────────
           Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
             child: Column(children: [
-              Container(
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: kCyan,
-                  borderRadius: BorderRadius.circular(50),
-                  boxShadow: [
-                    BoxShadow(
-                        color: kCyan.withOpacity(0.5),
-                        blurRadius: 22,
-                        spreadRadius: 2)
-                  ],
-                ),
-                child: const Center(
-                  child: Text('SHAMBLES',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: kDarkBg,
-                          letterSpacing: 4)),
+              GestureDetector(
+                onTap: _goToShambles,
+                child: Container(
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: kCyan,
+                    borderRadius: BorderRadius.circular(50),
+                    boxShadow: [
+                      BoxShadow(
+                          color: kCyan.withOpacity(0.5),
+                          blurRadius: 22,
+                          spreadRadius: 2)
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text('SHAMBLES',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: kDarkBg,
+                            letterSpacing: 4)),
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
