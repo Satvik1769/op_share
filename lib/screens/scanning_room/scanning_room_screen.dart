@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/scanning_room/target_icon_painter.dart';
 import 'dart:math';
@@ -159,10 +160,10 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                     ),
                   ),
                   Column(children: [
-                    const Text('ROOM ACTIVE',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
+                     Text('ROOM ACTIVE',
+                        style: GoogleFonts.spaceGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                             color: kCyan,
                             letterSpacing: 3)),
                     AnimatedBuilder(
@@ -225,7 +226,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
               GestureDetector(
                 onTap: _goToShambles,
                 child: Container(
-                  width: double.infinity,
+                  width:200,
                   height: 56,
                   decoration: BoxDecoration(
                     color: kCyan,
@@ -240,10 +241,10 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                   child: const Center(
                     child: Text('SHAMBLES',
                         style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                             color: kDarkBg,
-                            letterSpacing: 4)),
+                            letterSpacing: 2)),
                   ),
                 ),
               ),
