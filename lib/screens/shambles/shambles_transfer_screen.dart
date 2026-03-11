@@ -218,38 +218,22 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
             margin: const EdgeInsets.symmetric(horizontal: 20),
             padding:
             const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            decoration: BoxDecoration(
-              color: kCardBg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: kBorderDim),
-            ),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('ROOM',
-                            style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: 1)),
-                        Text('GAMMA/OPE-OPE PROTOCOL ACTIVE',
-                            style: TextStyle(
-                                fontSize: 8,
-                                letterSpacing: 1.5,
-                                color: kCyan.withOpacity(0.5),)),
-                      ]),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                        color: kBorderDim,
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.router_outlined,
-                        color: kCyan, size: 20),
-                  ),
+                  const Text('ROOM',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 5)),
+                  Text('OPE-OPE PROTOCOL ACTIVE',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 12,
+                          letterSpacing: 1.5,
+                          color: kCyan.withOpacity(0.5))),
                 ]),
           ),
           const SizedBox(height: 12),
@@ -262,7 +246,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                 children: [
                   Text('STAGED (${_files.length})',
                       style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 12,
                           letterSpacing: 2,
                           color: kCyan.withOpacity(0.6),)),
                   GestureDetector(
@@ -286,7 +270,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                         const SizedBox(width: 4),
                         Text('ADD FILE',
                             style: TextStyle(
-                                fontSize: 9,
+                                fontSize: 12,
                                 color: _isBroadcasting
                                     ? Colors.white24
                                     : kCyan,
