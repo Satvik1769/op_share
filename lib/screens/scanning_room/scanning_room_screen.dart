@@ -172,8 +172,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                           style: TextStyle(
                               fontSize: 9,
                               letterSpacing: 2,
-                              color: kCyan.withOpacity(_pulseAnim.value),
-                              fontFamily: 'monospace')),
+                              color: kCyan.withOpacity(_pulseAnim.value),)),
                     ),
                   ]),
                   const Icon(Icons.settings_suggest_outlined,
@@ -187,8 +186,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                   fontSize: 13,
                   letterSpacing: 2,
                   fontWeight: FontWeight.w700,
-                  color: kCyan,
-                  fontFamily: 'monospace')),
+                  color: kCyan,)),
           const SizedBox(height: 6),
 
           // ── RADAR ─────────────────────────────────
@@ -253,8 +251,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                   style: TextStyle(
                       fontSize: 9,
                       letterSpacing: 2.5,
-                      color: kCyan.withOpacity(0.55),
-                      fontFamily: 'monospace')),
+                      color: kCyan.withOpacity(0.55),)),
             ]),
           ),
 

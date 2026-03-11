@@ -20,7 +20,6 @@ class StatusText extends StatelessWidget {
       style: TextStyle(
         fontSize: fontSize,
         letterSpacing: letterSpacing,
-        fontFamily: 'monospace',
         color: bright ? kCyan : kCyan.withOpacity(0.5),
         fontWeight: bright ? FontWeight.bold : FontWeight.normal,
       ),

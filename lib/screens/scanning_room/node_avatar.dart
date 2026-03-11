@@ -62,7 +62,6 @@ class NodeAvatar extends StatelessWidget {
                     color: node.isOwner
                         ? Colors.white
                         : kCyan.withOpacity(0.65),
-                    fontFamily: 'monospace',
                     fontWeight: node.isOwner
                         ? FontWeight.bold
                         : FontWeight.normal)),

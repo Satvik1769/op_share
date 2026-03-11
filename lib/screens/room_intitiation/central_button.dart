@@ -122,7 +122,6 @@ class CentralButton extends StatelessWidget {
                           fontSize: 9,
                           letterSpacing: 2,
                           color: kCyan.withOpacity(0.6),
-                          fontFamily: 'monospace',
                         ),
                       ),
                     ],

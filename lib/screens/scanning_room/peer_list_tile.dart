@@ -49,8 +49,7 @@ class PeerListTile extends StatelessWidget {
                 Text('${node.connectionType} • ${node.distance}',
                     style: TextStyle(
                         fontSize: 10,
-                        color: kCyan.withOpacity(0.5),
-                        fontFamily: 'monospace')),
+                        color: kCyan.withOpacity(0.5),)),
               ]),
         ),
         if (isReady) ...[

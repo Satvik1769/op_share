@@ -267,8 +267,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                             style: TextStyle(
                                 fontSize: 8,
                                 letterSpacing: 1.5,
-                                color: kCyan.withOpacity(0.5),
-                                fontFamily: 'monospace')),
+                                color: kCyan.withOpacity(0.5),)),
                       ]),
                   Container(
                     width: 36,
@@ -293,8 +292,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                       style: TextStyle(
                           fontSize: 9,
                           letterSpacing: 2,
-                          color: kCyan.withOpacity(0.6),
-                          fontFamily: 'monospace')),
+                          color: kCyan.withOpacity(0.6),)),
                   GestureDetector(
                     onTap: _isBroadcasting ? null : _addMockFile,
                     child: Container(
@@ -320,8 +318,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                                 color: _isBroadcasting
                                     ? Colors.white24
                                     : kCyan,
-                                letterSpacing: 1.5,
-                                fontFamily: 'monospace')),
+                                letterSpacing: 1.5,)),
                       ]),
                     ),
                   ),
@@ -557,8 +554,7 @@ class FileChip extends StatelessWidget {
                   Text(file.size,
                       style: TextStyle(
                           fontSize: 8,
-                          color: kCyan.withOpacity(0.5),
-                          fontFamily: 'monospace')),
+                          color: kCyan.withOpacity(0.5),)),
                   if (isDone) ...[
                     const SizedBox(width: 4),
                     const Icon(Icons.check_circle_outline,
@@ -721,18 +717,15 @@ class BroadcastProgressBar extends StatelessWidget {
           Text('$peersInRange peers in range',
               style: TextStyle(
                   fontSize: 9,
-                  color: kCyan.withOpacity(0.55),
-                  fontFamily: 'monospace')),
+                  color: kCyan.withOpacity(0.55),)),
           Text('${speedMbps.toStringAsFixed(0)} Mb/s',
               style: TextStyle(
                   fontSize: 9,
-                  color: kCyan.withOpacity(0.55),
-                  fontFamily: 'monospace')),
+                  color: kCyan.withOpacity(0.55),)),
           Text(done ? 'ETA: --' : 'ETA: ${etaSeconds}s',
               style: TextStyle(
                   fontSize: 9,
-                  color: kCyan.withOpacity(0.55),
-                  fontFamily: 'monospace')),
+                  color: kCyan.withOpacity(0.55),)),
         ]),
       ]),
     );
@@ -760,8 +753,7 @@ class InfoTile extends StatelessWidget {
             style: TextStyle(
                 fontSize: 8,
                 letterSpacing: 1.5,
-                color: kCyan.withOpacity(0.5),
-                fontFamily: 'monospace')),
+                color: kCyan.withOpacity(0.5),)),
         const SizedBox(height: 3),
         Text(value,
             style: const TextStyle(
