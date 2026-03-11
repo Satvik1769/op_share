@@ -1,48 +1,20 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// shambles_transfer_screen.dart
-//
-// Screen 3 — Shambles Transfer
-// Handles file staging, animated broadcast, and per-peer transfer progress.
-//
-// Depends on:  room_constants.dart  (kCyan, kDarkBg, kCardBg, kBorderDim,
-//                                     RadarNode, NavItem)
-// ─────────────────────────────────────────────────────────────────────────────
 
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
+import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
 
 import '../scanning_room/nav_item.dart';
 import '../scanning_room/radar_node.dart';
 
-// ─────────────────────────────────────────────
-// FILE TRANSFER MODEL
-// ─────────────────────────────────────────────
-enum FileStatus { queued, transferring, done, failed }
 
-class TransferFile {
-  final String name;
-  final String ext;
-  final String size;
-  final IconData icon;
-  final Color iconColor;
-  double progress; // 0.0 – 1.0
-  FileStatus status;
+import 'broadcast_progress_bar.dart';
+import 'file_chip.dart';
+import 'file_status.dart';
+import 'info_tile.dart';
+import 'orbit_ring_painter.dart';
 
-  TransferFile({
-    required this.name,
-    required this.ext,
-    required this.size,
-    required this.icon,
-    required this.iconColor,
-    this.progress = 0.0,
-    this.status = FileStatus.queued,
-  });
-}
 
-// ─────────────────────────────────────────────
-// SCREEN
-// ─────────────────────────────────────────────
 class ShamblesTransferScreen extends StatefulWidget {
   /// Peers passed in from RoomActiveScreen
   final List<RadarNode> peers;
@@ -56,7 +28,7 @@ class ShamblesTransferScreen extends StatefulWidget {
 
 class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
     with TickerProviderStateMixin {
-  // ── Animation controllers ─────────────────
+
   late final AnimationController _orbitCtrl;
   late final Animation<double> _orbitAnim;
 
@@ -69,7 +41,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseAnim;
 
-  // ── State ─────────────────────────────────
+
   final List<TransferFile> _files = [
     TransferFile(
       name: 'heart_anatomy',
@@ -509,259 +481,3 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SUB-WIDGETS  (public so they can be unit-tested or reused)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Horizontal file card in the staged list
-class FileChip extends StatelessWidget {
-  final TransferFile file;
-  final VoidCallback? onRemove;
-
-  const FileChip({super.key, required this.file, this.onRemove});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDone = file.status == FileStatus.done;
-    final isTransferring = file.status == FileStatus.transferring;
-
-    return Container(
-      width: 170,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: isDone ? kCyan.withOpacity(0.6) : kBorderDim),
-      ),
-      child: Row(children: [
-        Icon(file.icon, color: file.iconColor, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('${file.name}.${file.ext}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-                const SizedBox(height: 2),
-                Row(children: [
-                  Text(file.size,
-                      style: TextStyle(
-                          fontSize: 8,
-                          color: kCyan.withOpacity(0.5),)),
-                  if (isDone) ...[
-                    const SizedBox(width: 4),
-                    const Icon(Icons.check_circle_outline,
-                        color: kCyan, size: 10),
-                  ],
-                ]),
-                if (isTransferring)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: LinearProgressIndicator(
-                      value: file.progress,
-                      backgroundColor: kBorderDim,
-                      color: kCyan,
-                      minHeight: 2,
-                    ),
-                  ),
-              ]),
-        ),
-        if (onRemove != null)
-          GestureDetector(
-            onTap: onRemove,
-            child:
-            const Icon(Icons.close, color: Colors.white24, size: 14),
-          ),
-      ]),
-    );
-  }
-}
-
-/// Animated orbit rings around the central Shambles circle
-class OrbitRingPainter extends CustomPainter {
-  final double angle;
-  final bool active;
-
-  OrbitRingPainter(this.angle, this.active);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    // Static dim rings
-    canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..color = kCyan.withOpacity(0.15)
-          ..strokeWidth = 1
-          ..style = PaintingStyle.stroke);
-
-    canvas.drawCircle(
-        center,
-        radius * 0.72,
-        Paint()
-          ..color = kCyan.withOpacity(0.10)
-          ..strokeWidth = 1
-          ..style = PaintingStyle.stroke);
-
-    if (!active) return;
-
-    // Outer spinning arc
-    canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        angle,
-        pi * 0.8,
-        false,
-        Paint()
-          ..color = kCyan.withOpacity(0.7)
-          ..strokeWidth = 2.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round);
-
-    // Inner counter-spinning arc
-    canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius * 0.72),
-        -angle * 1.3,
-        pi * 0.4,
-        false,
-        Paint()
-          ..color = kCyan.withOpacity(0.4)
-          ..strokeWidth = 1.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(covariant OrbitRingPainter old) =>
-      old.angle != angle || old.active != active;
-}
-
-/// Live broadcast progress indicator
-class BroadcastProgressBar extends StatelessWidget {
-  final double percent;       // 0–100
-  final int peersInRange;
-  final double speedMbps;
-  final int etaSeconds;       // remaining seconds, 0 when done
-
-  const BroadcastProgressBar({
-    super.key,
-    required this.percent,
-    required this.peersInRange,
-    required this.speedMbps,
-    required this.etaSeconds,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = percent.clamp(0.0, 100.0);
-    final done = pct >= 100;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorderDim),
-      ),
-      child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: done ? Colors.greenAccent : kCyan,
-                  boxShadow: [
-                    BoxShadow(
-                        color: (done ? Colors.greenAccent : kCyan)
-                            .withOpacity(0.7),
-                        blurRadius: 6)
-                  ]),
-            ),
-            const SizedBox(width: 8),
-            Text(done ? 'TRANSFER COMPLETE' : 'BROADCASTING',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: done ? Colors.greenAccent : kCyan,
-                    letterSpacing: 2)),
-          ]),
-          Text('${pct.toStringAsFixed(0)}%',
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white)),
-        ]),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: pct / 100.0,
-            backgroundColor: kBorderDim,
-            color: done ? Colors.greenAccent : kCyan,
-            minHeight: 6,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('$peersInRange peers in range',
-              style: TextStyle(
-                  fontSize: 9,
-                  color: kCyan.withOpacity(0.55),)),
-          Text('${speedMbps.toStringAsFixed(0)} Mb/s',
-              style: TextStyle(
-                  fontSize: 9,
-                  color: kCyan.withOpacity(0.55),)),
-          Text(done ? 'ETA: --' : 'ETA: ${etaSeconds}s',
-              style: TextStyle(
-                  fontSize: 9,
-                  color: kCyan.withOpacity(0.55),)),
-        ]),
-      ]),
-    );
-  }
-}
-
-/// Small two-line info tile used at the bottom of the screen
-class InfoTile extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const InfoTile({super.key, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-      decoration: BoxDecoration(
-        color: kCardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kBorderDim),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label,
-            style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1.5,
-                color: kCyan.withOpacity(0.5),)),
-        const SizedBox(height: 3),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.5)),
-      ]),
-    );
-  }
-}
