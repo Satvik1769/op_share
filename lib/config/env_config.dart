@@ -12,7 +12,7 @@ class EnvConfig {
   static const dev = EnvConfig(
     flavor: 'dev',
     appName: 'OpShare Dev',
-    baseUrl: 'https://dev-api.opshare.example.com',
+    baseUrl: 'http://localhost:8080',
   );
 
   static const uat = EnvConfig(
