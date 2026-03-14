@@ -16,7 +16,6 @@ class HistoryLogScreen extends StatefulWidget {
 class _HistoryLogScreenState extends State<HistoryLogScreen>
     with TickerProviderStateMixin {
   int _selectedFilter = 0;
-  int _selectedNav = 1;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -105,7 +104,6 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
             _buildFilterRow(),
             _buildSequenceLabel(),
             Expanded(child: _buildLogList()),
-            _buildBottomNav(),
           ],
         ),
       ),
@@ -148,7 +146,6 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
               ),
             ),
           ),
-          const Icon(Icons.crop_free, color: Color(0xFF4A5568), size: 20),
         ],
       ),
     );
@@ -663,76 +660,4 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
     );
   }
 
-  // ─── Bottom Nav ───────────────────────────────────────────────────────────
-
-  Widget _buildBottomNav() {
-    const items = [
-      {'icon': Icons.swap_horiz_rounded, 'label': 'TRANSFER'},
-      {'icon': Icons.access_time_rounded, 'label': 'LOG'},
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFF111A27), width: 1)),
-        color: Color(0xFF080C11),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: List.generate(items.length, (i) {
-          final active = _selectedNav == i;
-          final item = items[i];
-          return GestureDetector(
-            onTap: () {
-                setState(() => _selectedNav = i);
-                if (i == 0) {
-                  Navigator.of(context).push(PageRouteBuilder(
-                    transitionDuration: const Duration(milliseconds: 400),
-                    pageBuilder: (_, __, ___) =>
-                        const ShamblesTransferScreen(peers: []),
-                    transitionsBuilder: (_, animation, __, child) =>
-                        FadeTransition(opacity: animation, child: child),
-                  ));
-                }
-              },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? const Color(0xFF00FFC8).withOpacity(0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    item['icon'] as IconData,
-                    color: active
-                        ? const Color(0xFF00FFC8)
-                        : const Color(0xFF2A3F58),
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  item['label'] as String,
-                  style: TextStyle(
-                    color: active
-                        ? const Color(0xFF00FFC8)
-                        : const Color(0xFF2A3F58),
-                    fontSize: 8,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ),
-    );
-  }
 }

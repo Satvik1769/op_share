@@ -183,16 +183,6 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                 const Icon(Icons.chevron_left,
                     color: Color(0xFF4A6080), size: 18),
                 const SizedBox(width: 2),
-                Text(
-                  'RETURN',
-                  style: TextStyle(
-                    color: const Color(0xFF4A6080).withOpacity(0.85),
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
-                  ),
-                ),
               ],
             ),
           ),
