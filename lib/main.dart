@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:op_share_flutter/screens/auth_screens/contact_screen/contact_screen.dart';
 import 'package:op_share_flutter/screens/room_intitiation/room_initiation_screen.dart';
 
 void main() {
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
         textTheme:
             GoogleFonts.spaceGroteskTextTheme(ThemeData.dark().textTheme),
       ),
-      home: const RoomInitiationScreen(),
+      home: const AuthRequestScreen(),
     );
   }
 }
