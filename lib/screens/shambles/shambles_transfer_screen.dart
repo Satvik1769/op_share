@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
 
+import '../history/history_log_screen.dart';
 import '../scanning_room/nav_item.dart';
 import '../scanning_room/radar_node.dart';
 
@@ -446,17 +447,33 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                       icon: Icons.history_edu_outlined,
                       label: 'HISTORY',
                       selected: _selectedTab == 1,
-                      onTap: () => setState(() => _selectedTab = 1)),
+                      onTap: () {
+                        setState(() => _selectedTab = 1);
+                        Navigator.of(context).push(PageRouteBuilder(
+                          transitionDuration:
+                          const Duration(milliseconds: 400),
+                          pageBuilder: (_, __, ___) =>
+                          const HistoryLogScreen(),
+                          transitionsBuilder:
+                              (_, animation, __, child) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                  begin: const Offset(0.05, 0),
+                                  end: Offset.zero)
+                                  .animate(CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOut)),
+                              child: child,
+                            ),
+                          ),
+                        ));
+                      }),
                   NavItem(
                       icon: Icons.folder_outlined,
                       label: 'FILES',
                       selected: _selectedTab == 2,
                       onTap: () => setState(() => _selectedTab = 2)),
-                  NavItem(
-                      icon: Icons.settings_outlined,
-                      label: 'CONFIG',
-                      selected: _selectedTab == 3,
-                      onTap: () => setState(() => _selectedTab = 3)),
                 ]),
           ),
         ]),

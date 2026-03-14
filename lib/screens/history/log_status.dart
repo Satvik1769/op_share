@@ -1,0 +1,1 @@
+enum LogStatus { success, aborted, linked }

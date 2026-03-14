@@ -4,6 +4,7 @@ import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/scanning_room/target_icon_painter.dart';
 import 'dart:math';
 import '../shambles/shambles_transfer_screen.dart';
+import '../history/history_log_screen.dart';
 import 'radar_node.dart';
 import 'radar_painter.dart';
 import 'node_avatar.dart';
@@ -313,7 +314,28 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                       icon: Icons.history_edu_outlined,
                       label: 'HISTORY',
                       selected: _selectedTab == 1,
-                      onTap: () => setState(() => _selectedTab = 1)),
+                      onTap: () {
+                        setState(() => _selectedTab = 1);
+                        Navigator.of(context).push(PageRouteBuilder(
+                          transitionDuration:
+                              const Duration(milliseconds: 400),
+                          pageBuilder: (_, __, ___) =>
+                              const HistoryLogScreen(),
+                          transitionsBuilder:
+                              (_, animation, __, child) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                      begin: const Offset(0.05, 0),
+                                      end: Offset.zero)
+                                  .animate(CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOut)),
+                              child: child,
+                            ),
+                          ),
+                        ));
+                      }),
                   NavItem(
                       icon: Icons.storage_outlined,
                       label: 'STORAGE',
