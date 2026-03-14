@@ -1,0 +1,5 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include "Generated.xcconfig"
+FLUTTER_FLAVOR = uat
+BUNDLE_DISPLAY_NAME = OpShare UAT
+PRODUCT_BUNDLE_IDENTIFIER = com.example.opShareFlutter.uat

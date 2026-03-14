@@ -1,0 +1,29 @@
+class EnvConfig {
+  final String flavor;
+  final String appName;
+  final String baseUrl;
+
+  const EnvConfig({
+    required this.flavor,
+    required this.appName,
+    required this.baseUrl,
+  });
+
+  static const dev = EnvConfig(
+    flavor: 'dev',
+    appName: 'OpShare Dev',
+    baseUrl: 'https://dev-api.opshare.example.com',
+  );
+
+  static const uat = EnvConfig(
+    flavor: 'uat',
+    appName: 'OpShare UAT',
+    baseUrl: 'https://uat-api.opshare.example.com',
+  );
+
+  static const prod = EnvConfig(
+    flavor: 'prod',
+    appName: 'OpShare',
+    baseUrl: 'https://api.opshare.example.com',
+  );
+}
