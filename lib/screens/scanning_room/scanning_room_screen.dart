@@ -145,20 +145,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: kCyan, width: 2),
-                      ),
-                      child: Center(
-                        child: CustomPaint(
-                          size: const Size(22, 22),
-                          painter:  TargetIconPainter(),
-                        ),
-                      ),
-                    ),
+                    child:    Image.asset("assets/images/logo.png", width: 20, height: 20),
                   ),
                   Column(children: [
                      Text('ROOM ACTIVE',
@@ -176,8 +163,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                               color: kCyan.withOpacity(_pulseAnim.value),)),
                     ),
                   ]),
-                  const Icon(Icons.settings_suggest_outlined,
-                      color: kCyan, size: 28),
+                  const SizedBox(width: 12,)
                 ]),
           ),
 
@@ -300,49 +286,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
 
           // ── Bottom Nav ────────────────────────────
           Container(height: 1, color: kBorderDim),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  NavItem(
-                      icon: Icons.radio,
-                      label: 'ROOM',
-                      selected: _selectedTab == 0,
-                      onTap: () => setState(() => _selectedTab = 0)),
-                  NavItem(
-                      icon: Icons.history_edu_outlined,
-                      label: 'HISTORY',
-                      selected: _selectedTab == 1,
-                      onTap: () {
-                        setState(() => _selectedTab = 1);
-                        Navigator.of(context).push(PageRouteBuilder(
-                          transitionDuration:
-                              const Duration(milliseconds: 400),
-                          pageBuilder: (_, __, ___) =>
-                              const HistoryLogScreen(),
-                          transitionsBuilder:
-                              (_, animation, __, child) => FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                      begin: const Offset(0.05, 0),
-                                      end: Offset.zero)
-                                  .animate(CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeOut)),
-                              child: child,
-                            ),
-                          ),
-                        ));
-                      }),
-                  NavItem(
-                      icon: Icons.storage_outlined,
-                      label: 'STORAGE',
-                      selected: _selectedTab == 2,
-                      onTap: () => setState(() => _selectedTab = 2)),
-                ]),
-          ),
+
         ]),
       ),
     );

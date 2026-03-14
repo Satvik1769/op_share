@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
 
+import '../file_screen/file_screen.dart';
 import '../history/history_log_screen.dart';
 import '../scanning_room/nav_item.dart';
 import '../scanning_room/radar_node.dart';
@@ -210,7 +211,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                           letterSpacing: 2)),
-                  const Icon(Icons.info_outline, color: kCyan, size: 22),
+                  const SizedBox(height: 12,),
                 ]),
           ),
 
@@ -473,7 +474,28 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                       icon: Icons.folder_outlined,
                       label: 'FILES',
                       selected: _selectedTab == 2,
-                      onTap: () => setState(() => _selectedTab = 2)),
+                      onTap: () {
+                        setState(() => _selectedTab = 2);
+                        Navigator.of(context).push(PageRouteBuilder(
+                          transitionDuration:
+                          const Duration(milliseconds: 400),
+                          pageBuilder: (_, __, ___) =>
+                          const FileScreen(),
+                          transitionsBuilder:
+                              (_, animation, __, child) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                  begin: const Offset(0.05, 0),
+                                  end: Offset.zero)
+                                  .animate(CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOut)),
+                              child: child,
+                            ),
+                          ),
+                        ));
+                      }),
                 ]),
           ),
         ]),
