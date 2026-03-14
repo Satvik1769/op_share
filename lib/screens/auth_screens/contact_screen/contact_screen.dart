@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:op_share_flutter/screens/auth_screens/contact_screen/phone_formatter.dart';
 import '../../room_intitiation/top_status_bar.dart';
 import '../colors.dart';
+import '../otp_screen/otp_screen.dart';
 import 'corner_bracket_painter.dart';
 import 'dashed_circle_painter.dart';
 
@@ -88,7 +89,23 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     if (_phoneController.text.isEmpty) return;
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 2));
-    if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    Navigator.of(context).push(PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (_, __, ___) =>
+          VerifyOtpScreen(phoneNumber: _phoneController.text),
+      transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+                  begin: const Offset(0.05, 0), end: Offset.zero)
+              .animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        ),
+      ),
+    ));
   }
 
   @override
