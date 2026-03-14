@@ -1,4 +1,4 @@
-#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release-dev.xcconfig"
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile-dev.xcconfig"
 #include "Generated.xcconfig"
 FLUTTER_FLAVOR = dev
 BUNDLE_DISPLAY_NAME = OpShare Dev

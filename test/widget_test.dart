@@ -7,13 +7,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:op_share_flutter/config/env_config.dart';
 
 import 'package:op_share_flutter/main.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp(config: EnvConfig(
+      flavor: 'dev',
+      appName: 'OpShare Dev',
+      baseUrl: 'https://dev-api.opshare.example.com',
+    )));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
