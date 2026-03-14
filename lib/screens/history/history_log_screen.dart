@@ -125,14 +125,19 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () => Navigator.of(context).pushReplacement(PageRouteBuilder(
+              transitionDuration: const Duration(milliseconds: 400),
+              pageBuilder: (_, __, ___) => const ShamblesTransferScreen(peers: []),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            )),
             child: const Icon(Icons.chevron_left,
                 color: Color(0xFF00FFC8), size: 22),
           ),
           const Expanded(
             child: Center(
               child: Text(
-                'HISTORY_LOG',
+                'HISTORY',
                 style: TextStyle(
                   color: Color(0xFFE0E8F0),
                   fontSize: 13,
