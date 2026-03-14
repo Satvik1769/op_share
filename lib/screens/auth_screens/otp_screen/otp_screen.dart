@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../room_intitiation/top_status_bar.dart';
 import '../../room_intitiation/room_initiation_screen.dart';
 import '../colors.dart';
-import '../../auth_screens/contact_screen/corner_bracket_painter.dart';
-import '../../auth_screens/contact_screen/dashed_circle_painter.dart';
-import 'dart:math';
+import 'otp_top_bar.dart';
+import 'otp_scanner_widget.dart';
+import 'otp_title.dart';
+import 'otp_form.dart';
 
 
 class VerifyOtpScreen extends StatefulWidget {
@@ -94,12 +93,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    for (final c in _controllers) c.dispose();
+    for (final f in _focusNodes) f.dispose();
     _ringRotate.dispose();
     _ringPulse.dispose();
     _scanLine.dispose();
@@ -145,10 +140,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 500),
         pageBuilder: (_, __, ___) => const RoomInitiationScreen(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
       ),
       (_) => false,
     );
@@ -172,400 +165,39 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _buildTopBar(),
-                  _buildScannerWidget(),
-                  _buildTitle(),
+                  const OtpTopBar(),
+                  OtpScannerWidget(
+                    ringPulse: _ringPulse,
+                    ringRotate: _ringRotate,
+                    ringScale: _ringScale,
+                    scanPos: _scanPos,
+                    checkScale: _checkScale,
+                    isVerified: _isVerified,
+                  ),
+                  OtpTitle(phoneNumber: widget.phoneNumber),
                   const SizedBox(height: 32),
-                  _buildOtpForm(),
+                  OtpForm(
+                    controllers: _controllers,
+                    focusNodes: _focusNodes,
+                    isLoading: _isLoading,
+                    isVerified: _isVerified,
+                    otpValue: _otpValue,
+                    resendSeconds: _resendSeconds,
+                    btnGlowAnim: _btnGlowAnim,
+                    onVerify: _verifyOtp,
+                    onResend: () {
+                      setState(() => _resendSeconds = 30);
+                      _startResendTimer();
+                    },
+                    onDigitChanged: _onDigitChanged,
+                    onKeyEvent: _onKeyEvent,
+                  ),
                   const Spacer(),
                   const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Top Bar ──────────────────────────────────────────────────────────────
-
-  Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset("assets/images/logo.png", width: 16, height: 16),
-          const SizedBox(width: 6),
-          StatusText('ROOM', letterSpacing: 3, fontSize: 14, bright: true),
-        ],
-      ),
-    );
-  }
-
-  // ─── Scanner Widget ───────────────────────────────────────────────────────
-
-  Widget _buildScannerWidget() {
-    return SizedBox(
-      height: 240,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Radial glow
-          AnimatedBuilder(
-            animation: _ringPulse,
-            builder: (_, __) => Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    cyan.withValues(alpha: 0.06 * _ringScale.value),
-                    cyan.withValues(alpha: 0.02),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // Rotating dashed ring
-          AnimatedBuilder(
-            animation: _ringRotate,
-            builder: (_, __) => Transform.rotate(
-              angle: _ringRotate.value * 2 * pi,
-              child: CustomPaint(
-                size: const Size(200, 200),
-                painter: DashedCirclePainter(
-                  color: cyan.withValues(alpha: 0.25),
-                  dashCount: 36,
-                  strokeWidth: 1.0,
-                ),
-              ),
-            ),
-          ),
-
-          // Inner pulsing ring
-          AnimatedBuilder(
-            animation: _ringScale,
-            builder: (_, __) => Transform.scale(
-              scale: _ringScale.value,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: cyan.withValues(alpha: 0.55),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: cyan.withValues(alpha: 0.2 * _ringScale.value),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Corner brackets
-          SizedBox(
-            width: 170,
-            height: 170,
-            child: CustomPaint(
-              painter: CornerBracketPainter(color: cyan.withValues(alpha: 0.9)),
-            ),
-          ),
-
-          // Center icon — check when verified, shield + scan line otherwise
-          ClipOval(
-            child: SizedBox(
-              width: 160,
-              height: 160,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_isVerified)
-                    ScaleTransition(
-                      scale: _checkScale,
-                      child: Icon(Icons.verified_rounded,
-                          color: cyan, size: 72),
-                    )
-                  else ...[
-                    Icon(
-                      Icons.lock_outline_rounded,
-                      color: cyan.withValues(alpha: 0.85),
-                      size: 72,
-                    ),
-                    AnimatedBuilder(
-                      animation: _scanPos,
-                      builder: (_, __) => Positioned(
-                        top: 160 * _scanPos.value,
-                        left: 16,
-                        right: 16,
-                        child: Container(
-                          height: 1.5,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                cyan.withValues(alpha: 0.9),
-                                Colors.transparent,
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: cyan.withValues(alpha: 0.5),
-                                blurRadius: 6,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Title Block ──────────────────────────────────────────────────────────
-
-  Widget _buildTitle() {
-    return Column(
-      children: [
-        const SizedBox(height: 22),
-        Text(
-          'Verify Identity',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.spaceGrotesk(
-            color: const Color(0xFFE8F4FF),
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            height: 1.15,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'OTP dispatched to +91 ${widget.phoneNumber}',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFF3A5878).withValues(alpha: 0.9),
-            fontSize: 12,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── OTP Form ─────────────────────────────────────────────────────────────
-
-  Widget _buildOtpForm() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ENTER 6-DIGIT CODE',
-            style: TextStyle(
-              color: cyan.withValues(alpha: 0.45),
-              fontSize: 9,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2.0,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(6, (i) => _buildDigitBox(i)),
-          ),
-          const SizedBox(height: 20),
-          // Verify button
-          AnimatedBuilder(
-            animation: _btnGlowAnim,
-            builder: (_, child) => Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: cyan.withValues(
-                        alpha: 0.35 * _btnGlowAnim.value),
-                    blurRadius: 20,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: child,
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed:
-                    (_isLoading || _otpValue.length < 6) ? null : _verifyOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isVerified
-                      ? const Color(0xFF00C896)
-                      : cyan,
-                  disabledBackgroundColor: cyan.withValues(alpha: 0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  elevation: 0,
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: bg.withValues(alpha: 0.8),
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _isVerified ? 'VERIFIED' : 'Verify OTP',
-                            style: const TextStyle(
-                              color: Color(0xFF040810),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2.5,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(
-                            _isVerified
-                                ? Icons.check_rounded
-                                : Icons.north_east_rounded,
-                            color: const Color(0xFF040810).withValues(alpha: 0.7),
-                            size: 16,
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Resend row
-          Center(
-            child: _resendSeconds > 0
-                ? RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'RESEND IN  ',
-                          style: TextStyle(
-                            color: const Color(0xFF2A4060).withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontFamily: 'monospace',
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '00:${_resendSeconds.toString().padLeft(2, '0')}',
-                          style: TextStyle(
-                            color: cyan.withValues(alpha: 0.7),
-                            fontSize: 10,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : GestureDetector(
-                    onTap: () {
-                      setState(() => _resendSeconds = 30);
-                      _startResendTimer();
-                    },
-                    child: Text(
-                      'RESEND OTP',
-                      style: TextStyle(
-                        color: cyan,
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.6,
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDigitBox(int index) {
-    final isFocused = _focusNodes[index].hasFocus;
-    final hasValue = _controllers[index].text.isNotEmpty;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: 44,
-      height: 54,
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isFocused
-              ? cyan.withValues(alpha: 0.8)
-              : hasValue
-                  ? cyan.withValues(alpha: 0.35)
-                  : border,
-          width: isFocused ? 1.5 : 1,
-        ),
-        boxShadow: isFocused
-            ? [
-                BoxShadow(
-                  color: cyan.withValues(alpha: 0.2),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
-      child: KeyboardListener(
-        focusNode: FocusNode(),
-        onKeyEvent: (e) => _onKeyEvent(index, e),
-        child: TextField(
-          controller: _controllers[index],
-          focusNode: _focusNodes[index],
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          maxLength: 1,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: GoogleFonts.spaceGrotesk(
-            color: cyan,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-          cursorColor: cyan,
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            counterText: '',
-            contentPadding: EdgeInsets.zero,
-          ),
-          onChanged: (v) => _onDigitChanged(index, v),
-          onTap: () => setState(() {}),
         ),
       ),
     );
