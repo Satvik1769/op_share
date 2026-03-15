@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
 void showAppSnackBar(BuildContext context, String message, {bool isError = true}) {
-  ScaffoldMessenger.of(context)
+  _showSnackBar(ScaffoldMessenger.of(context), message, isError: isError);
+}
+
+void showAppSnackBarFromMessenger(ScaffoldMessengerState messenger, String message, {bool isError = true}) {
+  _showSnackBar(messenger, message, isError: isError);
+}
+
+void _showSnackBar(ScaffoldMessengerState messenger, String message, {bool isError = true}) {
+  messenger
     ..clearSnackBars()
     ..showSnackBar(
       SnackBar(

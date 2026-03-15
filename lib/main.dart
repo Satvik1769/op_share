@@ -4,6 +4,7 @@ import 'package:op_share_flutter/config/env_config.dart';
 import 'package:op_share_flutter/screens/auth_screens/contact_screen/contact_screen.dart';
 
 late final EnvConfig appConfig;
+String authToken = '';
 
 void main() {
   runApp(const MyApp(config: EnvConfig.prod));

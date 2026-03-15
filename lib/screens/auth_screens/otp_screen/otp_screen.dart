@@ -168,6 +168,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
     if (response.statusCode != 200) {
       throw Exception('Failed to verify OTP: ${response.statusCode}');
     }
+
+    final data = jsonDecode(response.body);
+    authToken = data['token'] as String;
   }
 
   void _verifyOtp() async {

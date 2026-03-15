@@ -1,13 +1,19 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:op_share_flutter/main.dart';
+import 'package:op_share_flutter/screens/auth_screens/colors.dart' as auth_colors;
 import 'central_button.dart';
 import 'colors_room.dart';
 import 'top_status_bar.dart';
 import 'header.dart';
 import 'background_watermark.dart';
 import '../scanning_room/scanning_room_screen.dart';
+
+String baseUrl = appConfig.baseUrl;
 
 class RoomInitiationScreen extends StatefulWidget {
   const RoomInitiationScreen({super.key});
@@ -92,16 +98,36 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
     super.dispose();
   }
 
-  void _onJoinRoom() async {
-    final code = _roomCodeController.text.trim();
-    if (code.isEmpty) return;
-    setState(() => _isJoining = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    setState(() => _isJoining = false);
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RoomActiveScreen()),
+
+  Future<void> joinRoom(BuildContext context) async {
+    final roomCode = _roomCodeController.text.trim();
+    if(roomCode.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final response = await http.post(
+      Uri.parse('$baseUrl/rooms/$roomCode/join'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
     );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print(data);
+      setState(() => _isJoining = true);
+      if (!mounted) return;
+      setState(() => _isJoining = false);
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const RoomActiveScreen()),
+      );
+    } else {
+      auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot join room.', isError: true);
+    }
+  }
+
+
+  void _onJoinRoom() async {
+    joinRoom(context);
   }
 
   void _onActivateTap() {
