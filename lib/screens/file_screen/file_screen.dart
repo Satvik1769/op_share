@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import 'transfer_status.dart';
 import 'active_transfer.dart';
 import 'manifest_entry.dart';
-import '../shambles/shambles_transfer_screen.dart';
-
-
 class FileScreen extends StatefulWidget {
   const FileScreen({super.key});
 
@@ -168,15 +165,7 @@ class _ManifestDetailsScreenState extends State<FileScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () {
-              Navigator.of(context).pushReplacement(PageRouteBuilder(
-                transitionDuration: const Duration(milliseconds: 400),
-                pageBuilder: (_, _, _) =>
-                    const ShamblesTransferScreen(peers: []),
-                transitionsBuilder: (_, animation, _, child) =>
-                    FadeTransition(opacity: animation, child: child),
-              ));
-            },
+            onTap: () => Navigator.of(context).pop(),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

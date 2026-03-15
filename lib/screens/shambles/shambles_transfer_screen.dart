@@ -8,7 +8,7 @@ import '../file_screen/file_screen.dart';
 import '../history/history_log_screen.dart';
 import '../scanning_room/nav_item.dart';
 import '../scanning_room/radar_node.dart';
-
+import '../../services/webrtc_service.dart';
 
 import 'broadcast_progress_bar.dart';
 import 'file_chip.dart';
@@ -18,10 +18,10 @@ import 'orbit_ring_painter.dart';
 
 
 class ShamblesTransferScreen extends StatefulWidget {
-  /// Peers passed in from RoomActiveScreen
   final List<RadarNode> peers;
+  final WebRTCService webrtc;
 
-  const ShamblesTransferScreen({super.key, required this.peers});
+  const ShamblesTransferScreen({super.key, required this.peers, required this.webrtc});
 
   @override
   State<ShamblesTransferScreen> createState() =>

@@ -1,21 +1,18 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
-import 'package:op_share_flutter/screens/scanning_room/target_icon_painter.dart';
-import 'dart:math';
+import 'package:op_share_flutter/services/webrtc_service.dart';
 import '../../main.dart';
 import '../auth_screens/colors.dart' as auth_colors;
-import '../auth_screens/contact_screen/contact_screen.dart';
 import '../shambles/shambles_transfer_screen.dart';
-import '../history/history_log_screen.dart';
 import 'radar_node.dart';
 import 'radar_painter.dart';
 import 'node_avatar.dart';
 import 'peer_list_tile.dart';
-import 'nav_item.dart';
 class RoomActiveScreen extends StatefulWidget {
   final String roomCode;
   const RoomActiveScreen({super.key, this.roomCode = ''});
@@ -36,45 +33,14 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
   late final Animation<double> _pulseAnim;
 
   final List<RadarNode> _visibleNodes = [];
-
-  static const List<RadarNode> _allNodes = [
-    RadarNode(
-      label: 'KROOM_IPHONE',
-      angle: -2.3,
-      dist: 0.45,
-      isOwner: true,
-      peerName: 'Kroom-iPhone-15',
-      connectionType: 'P2P-DIRECT',
-      distance: '0.2m',
-      status: 'READY',
-    ),
-    RadarNode(
-      label: 'NODE_ZORO',
-      angle: 0.5,
-      dist: 0.76,
-      isOwner: false,
-      peerName: 'Node-Zoro-Mac',
-      connectionType: 'RELAY',
-      distance: '4.5m',
-      status: 'STANDBY',
-    ),
-    RadarNode(
-      label: 'GHOST_NODE',
-      angle: -0.5,
-      dist: 0.52,
-      isOwner: false,
-      peerName: 'Ghost-Node-Alpha',
-      connectionType: 'RELAY',
-      distance: '8.1m',
-      status: 'STANDBY',
-    ),
-  ];
+  late final WebRTCService _webrtc;
+  final _rng = Random();
 
   Future<void> leaveRoom(BuildContext context) async {
     if (widget.roomCode.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
     final response = await http.post(
-      Uri.parse('$baseUrl/rooms/${widget.roomCode}/leave'),
+      Uri.parse('${appConfig.baseUrl}/rooms/${widget.roomCode}/leave'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $authToken',
@@ -116,20 +82,48 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
       ..repeat(reverse: true);
     _pulseAnim = Tween<double>(begin: 0.4, end: 1.0).animate(_pulseCtrl);
 
-    _spawnNodes();
+    _initWebRTC();
   }
 
-  void _spawnNodes() async {
-    for (int i = 0; i < _allNodes.length; i++) {
-      await Future.delayed(Duration(milliseconds: 1000 + i * 900));
+  void _initWebRTC() {
+    final wsUrl = appConfig.baseUrl
+        .replaceFirst(RegExp(r'^https'), 'wss')
+        .replaceFirst(RegExp(r'^http'), 'ws');
+
+    _webrtc = WebRTCService(
+      roomCode: widget.roomCode,
+      peerId: authToken,
+      signalingUrl: '$wsUrl/ws-native',
+      authToken: authToken,
+    );
+
+    _webrtc.onPeerJoined = (peerId) {
       if (!mounted) return;
-      setState(() => _visibleNodes.add(_allNodes[i]));
+      final node = RadarNode(
+        label: peerId.substring(0, min(8, peerId.length)).toUpperCase(),
+        angle: _rng.nextDouble() * 2 * pi,
+        dist: 0.3 + _rng.nextDouble() * 0.55,
+        isOwner: false,
+        peerName: peerId,
+        connectionType: 'P2P-DIRECT',
+        distance: '—',
+        status: 'READY',
+      );
+      setState(() => _visibleNodes.add(node));
       _nodesCtrl.forward(from: 0);
-    }
+    };
+
+    _webrtc.onPeerLeft = (peerId) {
+      if (!mounted) return;
+      setState(() => _visibleNodes.removeWhere((n) => n.peerName == peerId));
+    };
+
+    _webrtc.connect();
   }
 
   @override
   void dispose() {
+    _webrtc.dispose();
     _radarCtrl.dispose();
     _ringCtrl.dispose();
     _nodesCtrl.dispose();
@@ -141,7 +135,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     Navigator.of(context).push(PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 600),
       pageBuilder: (_, __, ___) =>
-          ShamblesTransferScreen(peers: _visibleNodes),
+          ShamblesTransferScreen(peers: _visibleNodes, webrtc: _webrtc),
       transitionsBuilder: (_, animation, __, child) => FadeTransition(
         opacity: animation,
         child: SlideTransition(

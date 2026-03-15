@@ -7,7 +7,8 @@ late final EnvConfig appConfig;
 String authToken = '';
 
 void main() {
-  runApp(const MyApp(config: EnvConfig.prod));
+  appConfig = EnvConfig.dev;
+  runApp(const MyApp(config: EnvConfig.dev));
 }
 
 class MyApp extends StatelessWidget {

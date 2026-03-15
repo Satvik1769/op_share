@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'log_entry.dart';
 import 'log_status.dart';
-import '../shambles/shambles_transfer_screen.dart';
-
-
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 class HistoryLogScreen extends StatefulWidget {
@@ -123,12 +120,7 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pushReplacement(PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 400),
-              pageBuilder: (_, __, ___) => const ShamblesTransferScreen(peers: []),
-              transitionsBuilder: (_, animation, __, child) =>
-                  FadeTransition(opacity: animation, child: child),
-            )),
+            onTap: () => Navigator.of(context).pop(),
             child: const Icon(Icons.chevron_left,
                 color: Color(0xFF00FFC8), size: 22),
           ),
