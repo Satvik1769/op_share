@@ -1,8 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/scanning_room/target_icon_painter.dart';
 import 'dart:math';
+import '../../main.dart';
+import '../auth_screens/colors.dart' as auth_colors;
+import '../auth_screens/contact_screen/contact_screen.dart';
 import '../shambles/shambles_transfer_screen.dart';
 import '../history/history_log_screen.dart';
 import 'radar_node.dart';
@@ -11,7 +17,8 @@ import 'node_avatar.dart';
 import 'peer_list_tile.dart';
 import 'nav_item.dart';
 class RoomActiveScreen extends StatefulWidget {
-  const RoomActiveScreen({super.key});
+  final String roomCode;
+  const RoomActiveScreen({super.key, this.roomCode = ''});
 
   @override
   State<RoomActiveScreen> createState() => _RoomActiveScreenState();
@@ -63,7 +70,25 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     ),
   ];
 
-  int _selectedTab = 0;
+  Future<void> leaveRoom(BuildContext context) async {
+    if (widget.roomCode.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final response = await http.post(
+      Uri.parse('$baseUrl/rooms/${widget.roomCode}/leave'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      if (!mounted) return;
+      Navigator.pop(context);
+    } else {
+      auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot leave room.', isError: true);
+    }
+  }
+
 
   @override
   void initState() {
@@ -144,7 +169,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () => leaveRoom(context),
                     child:    Image.asset("assets/images/logo.png", width: 20, height: 20),
                   ),
                   Column(children: [

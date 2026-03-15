@@ -118,7 +118,7 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
       if (!mounted) return;
       setState(() => _isJoining = false);
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const RoomActiveScreen()),
+        MaterialPageRoute(builder: (_) => RoomActiveScreen(roomCode: roomCode)),
       );
     } else {
       auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot join room.', isError: true);
