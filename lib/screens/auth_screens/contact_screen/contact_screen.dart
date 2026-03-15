@@ -111,9 +111,7 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send OTP. Please try again.')),
-      );
+      showAppSnackBar(context, 'Failed to send OTP. Please try again.');
       return;
     }
     if (!mounted) return;

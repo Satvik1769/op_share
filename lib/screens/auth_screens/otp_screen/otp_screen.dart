@@ -178,9 +178,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP verification failed. Please check your otp and try again.')),
-      );
+      showAppSnackBar(context, 'OTP verification failed. Please check your OTP and try again.');
       return;
     }
     if (!mounted) return;
