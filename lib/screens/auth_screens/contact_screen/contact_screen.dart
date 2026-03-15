@@ -86,7 +86,8 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
   }
 
   void _requestToken() async {
-    if (_phoneController.text.isEmpty) return;
+    final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) return;
     setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;

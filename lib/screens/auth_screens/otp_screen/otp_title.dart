@@ -23,14 +23,28 @@ class OtpTitle extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          'OTP dispatched to +91 $phoneNumber',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: const Color(0xFF3A5878).withValues(alpha: 0.9),
-            fontSize: 12,
-            letterSpacing: 0.3,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'OTP dispatched to +91 $phoneNumber',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFF3A5878).withValues(alpha: 0.9),
+                fontSize: 12,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Icon(
+                Icons.edit,
+                size: 13,
+                color: const Color(0xFF3A5878).withValues(alpha: 0.7),
+              ),
+            ),
+          ],
         ),
       ],
     );
