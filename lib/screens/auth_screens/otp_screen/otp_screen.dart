@@ -173,7 +173,16 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   void _verifyOtp() async {
     if (_otpValue.length < 6) return;
     setState(() => _isLoading = true);
-    await verifyOtp();
+    try {
+      await verifyOtp();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OTP verification failed. Please check your otp and try again.')),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _isLoading = false;

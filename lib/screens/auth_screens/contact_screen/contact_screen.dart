@@ -106,7 +106,16 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) return;
     setState(() => _isLoading = true);
-    await sendOtp(digits);
+    try {
+      await sendOtp(digits);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send OTP. Please try again.')),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() => _isLoading = false);
     Navigator.of(context).push(PageRouteBuilder(
