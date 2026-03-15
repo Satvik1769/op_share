@@ -130,16 +130,38 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
     joinRoom(context);
   }
 
-  void _onActivateTap() {
+  Future<void> _createRoom() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final response = await http.post(
+      Uri.parse('$baseUrl/rooms'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      },
+    );
+
+    if (response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      print(data);
+      setState(() => _isJoining = true);
+      if (!mounted) return;
+      setState(() => _isJoining = false);
+      final String roomId = data["roomId"].toString();
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RoomActiveScreen(roomCode: roomId)),
+      );
+    } else {
+      auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot create room.', isError: true);
+    }
+  }
+
+  void _onActivateTap() async {
     setState(() => _isScanning = true);
-    _scanCtrl.forward(from: 0).then((_) {
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const RoomActiveScreen()),
-        );
-        setState(() => _isScanning = false);
-      }
-    });
+    await _scanCtrl.forward(from: 0);
+    if (!mounted) return;
+    await _createRoom();
+    if (!mounted) return;
+    setState(() => _isScanning = false);
   }
 
   @override
