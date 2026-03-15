@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:op_share_flutter/config/env_config.dart';
 import 'package:op_share_flutter/screens/auth_screens/contact_screen/contact_screen.dart';
-import 'package:op_share_flutter/screens/room_intitiation/room_initiation_screen.dart';
 
 late final EnvConfig appConfig;
 
@@ -17,7 +16,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    appConfig = config;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: config.appName,

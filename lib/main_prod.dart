@@ -3,5 +3,6 @@ import 'package:op_share_flutter/main.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  appConfig = EnvConfig.prod;
   runApp(const MyApp(config: EnvConfig.prod));
 }

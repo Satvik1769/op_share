@@ -1,13 +1,18 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:op_share_flutter/screens/auth_screens/contact_screen/phone_formatter.dart';
+import '../../../main.dart';
 import '../../room_intitiation/top_status_bar.dart';
 import '../colors.dart';
 import '../otp_screen/otp_screen.dart';
 import 'corner_bracket_painter.dart';
 import 'dashed_circle_painter.dart';
+
+String baseUrl = appConfig.baseUrl;
 
 
 class AuthRequestScreen extends StatefulWidget {
@@ -85,11 +90,23 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     super.dispose();
   }
 
+  Future<void> sendOtp(String phoneNumber) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/send-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'contactNumber': phoneNumber}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to send OTP: ${response.statusCode}');
+    }
+  }
+
   void _requestToken() async {
     final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
+    await sendOtp(digits);
     if (!mounted) return;
     setState(() => _isLoading = false);
     Navigator.of(context).push(PageRouteBuilder(

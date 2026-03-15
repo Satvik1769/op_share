@@ -1,5 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import '../../../main.dart';
 import '../../room_intitiation/room_initiation_screen.dart';
 import '../colors.dart';
 import 'otp_top_bar.dart';
@@ -7,6 +13,7 @@ import 'otp_scanner_widget.dart';
 import 'otp_title.dart';
 import 'otp_form.dart';
 
+String baseUrl = appConfig.baseUrl;
 
 class VerifyOtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -123,18 +130,56 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
     }
   }
 
+
+  Future<Map<String, String>> _getDeviceInfo() async {
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      final info = await deviceInfo.androidInfo;
+      return {
+        'deviceId': info.id,
+        'deviceName': info.model,
+        'deviceType': 'ANDROID',
+      };
+    } else if (Platform.isIOS) {
+      final info = await deviceInfo.iosInfo;
+      return {
+        'deviceId': info.identifierForVendor ?? '',
+        'deviceName': info.name,
+        'deviceType': 'IOS',
+      };
+    }
+    return {'deviceId': '', 'deviceName': '', 'deviceType': 'UNKNOWN'};
+  }
+
+  Future<void> verifyOtp() async {
+    final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
+    final device = await _getDeviceInfo();
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/verify-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contactNumber': digits,
+        'otpCode': _otpValue,
+        ...device,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to verify OTP: ${response.statusCode}');
+    }
+  }
+
   void _verifyOtp() async {
     if (_otpValue.length < 6) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
+    await verifyOtp();
     if (!mounted) return;
     setState(() {
       _isLoading = false;
       _isVerified = true;
     });
     await _checkAnim.forward();
-    if (!mounted) return;
-    await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
