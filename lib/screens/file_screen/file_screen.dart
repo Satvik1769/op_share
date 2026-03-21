@@ -1,7 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:op_share_flutter/services/staging_store.dart';
+import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
 import 'transfer_status.dart';
-import 'active_transfer.dart';
 import 'manifest_entry.dart';
 class FileScreen extends StatefulWidget {
   const FileScreen({super.key});
@@ -22,53 +23,7 @@ class _ManifestDetailsScreenState extends State<FileScreen>
   late Animation<double> _progress2Anim;
   late Animation<double> _fabPulse;
 
-  final List<ActiveTransfer> _activeTransfers = const [
-    ActiveTransfer(
-      filename: 'heart_anatomy.png',
-      speed: '12.4 MB/s',
-      eta: 'ETA: 00:04s',
-      progress: 0.72,
-      statusLabel: 'BROADCASTING...',
-    ),
-    ActiveTransfer(
-      filename: 'surgeon_notes.pdf',
-      speed: '8.1 MB/s',
-      eta: 'ETA: 00:12s',
-      progress: 0.42,
-      statusLabel: 'SYNCING...',
-    ),
-  ];
-
-  final List<ManifestEntry> _manifestEntries = const [
-    ManifestEntry(
-      filename: 'cardiac_valve_scan_4k.jpg',
-      size: '4.2 MB',
-      target: 'Thousand Sunny',
-      room: 'OP-992',
-      status: TransferStatus.success,
-    ),
-    ManifestEntry(
-      filename: 'shambles_protocol_v2.sh',
-      size: '0.12 MB',
-      target: 'Node_Zoro',
-      room: 'OP-003',
-      status: TransferStatus.syncing,
-    ),
-    ManifestEntry(
-      filename: 'forbidden_history_void...',
-      size: '2.8 GB',
-      target: 'Unknown_Node',
-      room: 'OP-EAR',
-      status: TransferStatus.interrupted,
-    ),
-    ManifestEntry(
-      filename: 'scalpel_calibration.log',
-      size: '1.5 MB',
-      target: 'Medical_Bay_01',
-      room: 'OP-10',
-      status: TransferStatus.success,
-    ),
-  ];
+  StagingStore get _store => StagingStore.instance;
 
   @override
   void initState() {
@@ -125,17 +80,22 @@ class _ManifestDetailsScreenState extends State<FileScreen>
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 14),
-                        _buildActiveShambles(),
-                        const SizedBox(height: 18),
-                        _buildTransferManifest(),
-                        const SizedBox(height: 80),
-                      ],
+                  child: ListenableBuilder(
+                    listenable: _store,
+                    builder: (context, _) => SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 14),
+                          if (_store.activeFiles.isNotEmpty) ...[
+                            _buildActiveShambles(),
+                            const SizedBox(height: 18),
+                          ],
+                          _buildTransferManifest(),
+                          const SizedBox(height: 80),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -234,12 +194,12 @@ class _ManifestDetailsScreenState extends State<FileScreen>
   // ─── Active Shambles Section ──────────────────────────────────────────────
 
   Widget _buildActiveShambles() {
+    final files = _store.activeFiles;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section header
           Row(
             children: [
               Container(
@@ -248,8 +208,7 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                   color: const Color(0xFF00FFC8).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(5),
                 ),
-                child: const Icon(Icons.bolt,
-                    color: Color(0xFF00FFC8), size: 13),
+                child: const Icon(Icons.bolt, color: Color(0xFF00FFC8), size: 13),
               ),
               const SizedBox(width: 8),
               const Text(
@@ -263,63 +222,38 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                 ),
               ),
               const Spacer(),
-              RichText(
-                text: const TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'NODES_CONNECTED: ',
-                      style: TextStyle(
-                        color: Color(0xFF2A4060),
-                        fontSize: 8.5,
-                        fontFamily: 'monospace',
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    TextSpan(
-                      text: '84',
-                      style: TextStyle(
-                        color: Color(0xFF00FFC8),
-                        fontSize: 8.5,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
+              Text(
+                'FILES: ${files.length}',
+                style: const TextStyle(
+                  color: Color(0xFF00FFC8),
+                  fontSize: 8.5,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          // Card 1
-          AnimatedBuilder(
-            animation: _progress1Anim,
-            builder: (_, __) => _buildActiveTransferCard(
-              transfer: _activeTransfers[0],
-              progressValue: _progress1Anim.value,
-              progressColor: const Color(0xFF00FFC8),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Card 2
-          AnimatedBuilder(
-            animation: _progress2Anim,
-            builder: (_, __) => _buildActiveTransferCard(
-              transfer: _activeTransfers[1],
-              progressValue: _progress2Anim.value,
-              progressColor: const Color(0xFF00FFC8),
-            ),
-          ),
+          ...files.asMap().entries.map((e) {
+            final f = e.value;
+            final ctrl = e.key == 0 ? _progressController1 : _progressController2;
+            final anim = e.key == 0 ? _progress1Anim : _progress2Anim;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: AnimatedBuilder(
+                animation: ctrl,
+                builder: (_, __) => _buildActiveFileCard(f, anim.value),
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildActiveTransferCard({
-    required ActiveTransfer transfer,
-    required double progressValue,
-    required Color progressColor,
-  }) {
+  Widget _buildActiveFileCard(TransferFile f, double progressValue) {
+    const progressColor = Color(0xFF00FFC8);
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
@@ -334,7 +268,7 @@ class _ManifestDetailsScreenState extends State<FileScreen>
             children: [
               Expanded(
                 child: Text(
-                  transfer.filename,
+                  '${f.name}.${f.ext}',
                   style: const TextStyle(
                     color: Color(0xFFCCE0F5),
                     fontSize: 12.5,
@@ -342,10 +276,11 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                     fontFamily: 'monospace',
                     letterSpacing: 0.3,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
-                transfer.speed,
+                f.size,
                 style: const TextStyle(
                   color: Color(0xFF8AAAC8),
                   fontSize: 11,
@@ -356,31 +291,17 @@ class _ManifestDetailsScreenState extends State<FileScreen>
             ],
           ),
           const SizedBox(height: 3),
-          Row(
-            children: [
-              Text(
-                transfer.statusLabel,
-                style: TextStyle(
-                  color: progressColor,
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                transfer.eta,
-                style: TextStyle(
-                  color: const Color(0xFF3A5070).withOpacity(0.9),
-                  fontSize: 9,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
+          const Text(
+            'BROADCASTING...',
+            style: TextStyle(
+              color: progressColor,
+              fontSize: 9,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.4,
+            ),
           ),
           const SizedBox(height: 8),
-          // Progress bar
           Stack(
             children: [
               Container(
@@ -391,16 +312,13 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                 ),
               ),
               FractionallySizedBox(
-                widthFactor: progressValue,
+                widthFactor: progressValue.clamp(0.0, 1.0),
                 child: Container(
                   height: 4,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    gradient: LinearGradient(
-                      colors: [
-                        progressColor.withOpacity(0.5),
-                        progressColor,
-                      ],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF007B63), progressColor],
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -474,20 +392,39 @@ class _ManifestDetailsScreenState extends State<FileScreen>
           ),
           const SizedBox(height: 12),
           // Entries
-          ...List.generate(
-            _manifestEntries.length,
-                (i) => Column(
-              children: [
-                _buildManifestTile(_manifestEntries[i]),
-                if (i < _manifestEntries.length - 1)
-                  Container(
-                    height: 1,
-                    margin: const EdgeInsets.symmetric(vertical: 2),
-                    color: const Color(0xFF0E1826),
+          if (_store.transferHistory.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'NO TRANSFERS YET',
+                  style: TextStyle(
+                    color: const Color(0xFF00FFC8).withOpacity(0.3),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    letterSpacing: 2,
                   ),
-              ],
+                ),
+              ),
+            )
+          else
+            ...List.generate(
+              _store.transferHistory.length,
+              (i) {
+                final entries = _store.transferHistory;
+                return Column(
+                  children: [
+                    _buildManifestTile(entries[i]),
+                    if (i < entries.length - 1)
+                      Container(
+                        height: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        color: const Color(0xFF0E1826),
+                      ),
+                  ],
+                );
+              },
             ),
-          ),
         ],
       ),
     );

@@ -1,8 +1,11 @@
 
 import 'dart:math';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
+import 'package:op_share_flutter/services/staging_store.dart';
 
 import '../file_screen/file_screen.dart';
 import '../history/history_log_screen.dart';
@@ -44,19 +47,11 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   late final Animation<double> _pulseAnim;
 
 
-  final List<TransferFile> _files = [
-    TransferFile(
-      name: 'heart_anatomy',
-      ext: 'png',
-      size: '2.3 MB',
-      icon: Icons.image_outlined,
-      iconColor: kCyan,
-    ),
-  ];
+  final List<TransferFile> _files = [];
 
   bool _isBroadcasting = false;
+  bool _isPicking = false;
   final double _speedMbps = 309;
-  final int _peersInRange = 4;
   int _selectedTab = 0; // TRANSFER tab
 
   // Fixed dot positions around the central circle
@@ -66,40 +61,6 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
     Offset(100, 45),
     Offset(-80, 55),
     Offset(10, -95),
-  ];
-
-  // Available mock file types for "+ ADD FILE"
-  List<TransferFile> get _mockFilePool => [
-    TransferFile(
-        name: 'chest_xray_scan',
-        ext: 'zip',
-        size: '14.7 MB',
-        icon: Icons.folder_zip_outlined,
-        iconColor: const Color(0xFFFFD54F)),
-    TransferFile(
-        name: 'patient_records',
-        ext: 'pdf',
-        size: '890 KB',
-        icon: Icons.picture_as_pdf_outlined,
-        iconColor: const Color(0xFFFF7043)),
-    TransferFile(
-        name: 'mri_sequence',
-        ext: 'mp4',
-        size: '38.2 MB',
-        icon: Icons.videocam_outlined,
-        iconColor: const Color(0xFFAB47BC)),
-    TransferFile(
-        name: 'lab_results',
-        ext: 'csv',
-        size: '120 KB',
-        icon: Icons.table_chart_outlined,
-        iconColor: const Color(0xFF66BB6A)),
-    TransferFile(
-        name: 'op_log',
-        ext: 'txt',
-        size: '44 KB',
-        icon: Icons.description_outlined,
-        iconColor: const Color(0xFF90A4AE)),
   ];
 
   @override
@@ -120,6 +81,9 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
         CurvedAnimation(parent: _broadcastCtrl, curve: Curves.easeInOut));
     _broadcastCtrl.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
+        final peerLabels = widget.peers.map((p) => p.label).toList();
+        // Publish completed files to shared store (FileScreen reads this)
+        StagingStore.instance.markAllDone('ACTIVE', peerLabels);
         setState(() {
           _isBroadcasting = false;
           for (final f in _files) {
@@ -169,17 +133,139 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
         f.progress = 0;
       }
     });
+    // Push to shared store so FileScreen can show active transfers
+    StagingStore.instance.setActiveFiles(List.from(_files));
+
+    // Send real bytes via WebRTC for each file that has bytes loaded
+    for (final f in _files) {
+      if (f.bytes != null && f.bytes!.isNotEmpty) {
+        widget.webrtc.broadcastFile(f.bytes!);
+      }
+    }
+
     _broadcastCtrl.forward(from: 0);
   }
 
-  void _addMockFile() {
-    if (_files.length >= 6) return;
-    setState(() => _files.add(_mockFilePool[_files.length % _mockFilePool.length]));
+  Future<void> _pickFile() async {
+    if (_isBroadcasting || _files.length >= 8 || _isPicking) return;
+    setState(() => _isPicking = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.any,
+      );
+      if (result == null || result.files.isEmpty) return;
+      setState(() {
+        for (final pf in result.files) {
+          if (_files.length >= 8) break;
+          final ext = (pf.extension ?? 'bin').toLowerCase();
+          _files.add(TransferFile(
+            name: pf.name.contains('.')
+                ? pf.name.substring(0, pf.name.lastIndexOf('.'))
+                : pf.name,
+            ext: ext,
+            size: _formatBytes(pf.size),
+            icon: _iconForExt(ext),
+            iconColor: _colorForExt(ext),
+            path: pf.path,
+            bytes: pf.bytes,
+          ));
+        }
+      });
+    } finally {
+      setState(() => _isPicking = false);
+    }
   }
 
   void _removeFile(int index) {
     if (_isBroadcasting) return;
     setState(() => _files.removeAt(index));
+  }
+
+  // ── Helpers ───────────────────────────────
+  static String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+
+  static IconData _iconForExt(String ext) {
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+      case 'heic':
+        return Icons.image_outlined;
+      case 'pdf':
+        return Icons.picture_as_pdf_outlined;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+      case 'mkv':
+        return Icons.videocam_outlined;
+      case 'mp3':
+      case 'wav':
+      case 'aac':
+      case 'm4a':
+        return Icons.audio_file_outlined;
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+        return Icons.folder_zip_outlined;
+      case 'csv':
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart_outlined;
+      case 'doc':
+      case 'docx':
+        return Icons.description_outlined;
+      case 'txt':
+      case 'log':
+        return Icons.article_outlined;
+      default:
+        return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  static Color _colorForExt(String ext) {
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+      case 'heic':
+        return kCyan;
+      case 'pdf':
+        return const Color(0xFFFF7043);
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+      case 'mkv':
+        return const Color(0xFFAB47BC);
+      case 'mp3':
+      case 'wav':
+      case 'aac':
+      case 'm4a':
+        return const Color(0xFF42A5F5);
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return const Color(0xFFFFD54F);
+      case 'csv':
+      case 'xls':
+      case 'xlsx':
+        return const Color(0xFF66BB6A);
+      default:
+        return const Color(0xFF90A4AE);
+    }
   }
 
   @override
@@ -247,32 +333,47 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                           letterSpacing: 2,
                           color: kCyan.withOpacity(0.6),)),
                   GestureDetector(
-                    onTap: _isBroadcasting ? null : _addMockFile,
+                    onTap: (_isBroadcasting || _isPicking) ? null : _pickFile,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 5),
                       decoration: BoxDecoration(
                         border: Border.all(
-                            color: _isBroadcasting
+                            color: (_isBroadcasting || _isPicking)
                                 ? kBorderDim
                                 : kCyan.withOpacity(0.5)),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(children: [
-                        Icon(Icons.add,
-                            color: _isBroadcasting
-                                ? Colors.white24
-                                : kCyan,
-                            size: 14),
-                        const SizedBox(width: 4),
-                        Text('ADD FILE',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: _isBroadcasting
-                                    ? Colors.white24
-                                    : kCyan,
-                                letterSpacing: 1.5,)),
-                      ]),
+                      child: _isPicking
+                          ? SizedBox(
+                              width: 60,
+                              height: 18,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: kCyan.withOpacity(0.7),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Row(children: [
+                              Icon(Icons.add,
+                                  color: _isBroadcasting
+                                      ? Colors.white24
+                                      : kCyan,
+                                  size: 14),
+                              const SizedBox(width: 4),
+                              Text('ADD FILE',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: _isBroadcasting
+                                          ? Colors.white24
+                                          : kCyan,
+                                      letterSpacing: 1.5)),
+                            ]),
                     ),
                   ),
                 ]),
@@ -380,7 +481,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                   animation: _broadcastAnim,
                   builder: (_, __) => BroadcastProgressBar(
                     percent: _broadcastAnim.value * 100,
-                    peersInRange: _peersInRange,
+                    peersInRange: widget.peers.length,
                     speedMbps: _speedMbps,
                     etaSeconds: ((1.0 - _broadcastCtrl.value) *
                             _broadcastCtrl.duration!.inSeconds)
