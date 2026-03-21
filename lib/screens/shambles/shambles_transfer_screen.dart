@@ -55,7 +55,6 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   ];
 
   bool _isBroadcasting = false;
-  double _broadcastPercent = 0.0;
   final double _speedMbps = 309;
   final int _peersInRange = 4;
   int _selectedTab = 0; // TRANSFER tab
@@ -114,16 +113,13 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
     _orbitAnim =
         Tween<double>(begin: 0, end: 2 * pi).animate(_orbitCtrl);
 
-    // Broadcast fill — drives _broadcastPercent
+    // Broadcast fill animation
     _broadcastCtrl = AnimationController(
         vsync: this, duration: const Duration(seconds: 6));
     _broadcastAnim = Tween<double>(begin: 0, end: 1).animate(
         CurvedAnimation(parent: _broadcastCtrl, curve: Curves.easeInOut));
-    _broadcastCtrl.addListener(() {
-      setState(() {
-        _broadcastPercent = _broadcastAnim.value * 100;
-      });
-      if (_broadcastCtrl.isCompleted && mounted) {
+    _broadcastCtrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
         setState(() {
           _isBroadcasting = false;
           for (final f in _files) {
@@ -168,7 +164,6 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
     if (_isBroadcasting || _files.isEmpty) return;
     setState(() {
       _isBroadcasting = true;
-      _broadcastPercent = 0;
       for (final f in _files) {
         f.status = FileStatus.transferring;
         f.progress = 0;
@@ -380,14 +375,17 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(children: [
-              if (_isBroadcasting || _broadcastPercent >= 100)
-                BroadcastProgressBar(
-                  percent: _broadcastPercent,
-                  peersInRange: _peersInRange,
-                  speedMbps: _speedMbps,
-                  etaSeconds: ((1.0 - _broadcastCtrl.value) *
-                          _broadcastCtrl.duration!.inSeconds)
-                      .ceil(),
+              if (_isBroadcasting || _broadcastCtrl.isCompleted)
+                AnimatedBuilder(
+                  animation: _broadcastAnim,
+                  builder: (_, __) => BroadcastProgressBar(
+                    percent: _broadcastAnim.value * 100,
+                    peersInRange: _peersInRange,
+                    speedMbps: _speedMbps,
+                    etaSeconds: ((1.0 - _broadcastCtrl.value) *
+                            _broadcastCtrl.duration!.inSeconds)
+                        .ceil(),
+                  ),
                 )
               else
                 GestureDetector(

@@ -92,12 +92,13 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
 
     _webrtc = WebRTCService(
       roomCode: widget.roomCode,
-      peerId: authToken,
+      peerId: currentUserId,
       signalingUrl: '$wsUrl/ws-native',
       authToken: authToken,
     );
 
     _webrtc.onPeerJoined = (peerId) {
+      print('[Radar] onPeerJoined called: $peerId mounted=$mounted');
       if (!mounted) return;
       final node = RadarNode(
         label: peerId.substring(0, min(8, peerId.length)).toUpperCase(),

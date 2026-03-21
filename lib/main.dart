@@ -5,6 +5,7 @@ import 'package:op_share_flutter/screens/auth_screens/contact_screen/contact_scr
 
 late final EnvConfig appConfig;
 String authToken = '';
+String currentUserId = '';
 
 void main() {
   appConfig = EnvConfig.dev;

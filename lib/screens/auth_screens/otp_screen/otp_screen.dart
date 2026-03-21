@@ -171,6 +171,22 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
 
     final data = jsonDecode(response.body);
     authToken = data['token'] as String;
+    currentUserId = _extractUserIdFromJwt(authToken);
+  }
+
+  String _extractUserIdFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length < 2) return '';
+      final payload = parts[1];
+      // Base64url → base64 padding
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final claims = jsonDecode(decoded) as Map<String, dynamic>;
+      return claims['sub']?.toString() ?? '';
+    } catch (_) {
+      return '';
+    }
   }
 
   void _verifyOtp() async {

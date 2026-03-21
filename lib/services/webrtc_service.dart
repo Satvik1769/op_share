@@ -43,17 +43,33 @@ class WebRTCService {
 
   // ── Connect to signaling server ──────────────────────────────────────
   void connect() {
+    print('[WebRTC] Connecting to $signalingUrl as peerId=$peerId');
     _stomp = StompClient(
       config: StompConfig(
         url: signalingUrl,
+        webSocketConnectHeaders: {
+          'Authorization': 'Bearer $authToken',
+        },
         stompConnectHeaders: {
           'Authorization': 'Bearer $authToken',
         },
         onConnect: _onStompConnected,
-        onDisconnect: (_) => _onDisconnected(),
-        onWebSocketError: (_) => _onDisconnected(),
-        onWebSocketDone: _onDisconnected,
-        onStompError: (_) => _onDisconnected(),
+        onDisconnect: (_) {
+          print('[WebRTC] STOMP disconnected');
+          _onDisconnected();
+        },
+        onWebSocketError: (error) {
+          print('[WebRTC] WebSocket error: $error');
+          _onDisconnected();
+        },
+        onWebSocketDone: () {
+          print('[WebRTC] WebSocket done');
+          _onDisconnected();
+        },
+        onStompError: (frame) {
+          print('[WebRTC] STOMP error: ${frame.body}');
+          _onDisconnected();
+        },
         reconnectDelay: const Duration(seconds: 5),
       ),
     );
@@ -61,15 +77,25 @@ class WebRTCService {
   }
 
   void _onStompConnected(StompFrame frame) {
-    // Subscribe to user-specific signal queue
+    print('[WebRTC] STOMP connected. Subscribing...');
+
+    // Room broadcast — USER_JOINED / USER_LEFT events
     _stomp!.subscribe(
-      destination: '/user/queue/signal',
+      destination: '/topic/room/$roomCode',
       callback: (frame) {
+        print('[WebRTC] Room event received: ${frame.body}');
         if (frame.body != null) _onSignalMessage(frame.body!);
       },
     );
-    // Announce join so existing peers initiate offers to us
-    _send({'type': 'join', 'peerId': peerId});
+
+    // User-specific queue — WebRTC signals (offer / answer / ice-candidate)
+    _stomp!.subscribe(
+      destination: '/user/queue/signal',
+      callback: (frame) {
+        print('[WebRTC] Signal received: ${frame.body}');
+        if (frame.body != null) _onSignalMessage(frame.body!);
+      },
+    );
   }
 
   void _onDisconnected() {
@@ -82,17 +108,33 @@ class WebRTCService {
   // ── Handle incoming signaling messages ──────────────────────────────
   void _onSignalMessage(String raw) async {
     final msg = jsonDecode(raw) as Map<String, dynamic>;
-    final type = msg['type'] as String;
-    // Server sets 'from' server-side; fall back to 'peerId' for join broadcasts
-    final from = msg['from'] as String? ?? msg['peerId'] as String? ?? '';
+    // Room events use 'eventType'; WebRTC signals use 'type'
+    final type = (msg['type'] ?? msg['eventType'] ?? '') as String;
+    // Server sets 'from' server-side; room events use 'peerId'
+    final from = (msg['from'] ?? msg['peerId'] ?? '').toString();
 
-    if (from == peerId) return; // ignore echoed own messages
+    print('[WebRTC] Signal type=$type from=$from (myId=$peerId)');
+
+    if (from == peerId) {
+      print('[WebRTC] Ignoring own echo');
+      return;
+    }
 
     switch (type) {
+      case 'USER_JOINED':
+      case 'user_joined':
       case 'join':
-        // A new peer joined — we initiate the offer
-        await _createOffer(from);
-        onPeerJoined?.call(from);
+        if (from.isEmpty) {
+          print('[WebRTC] USER_JOINED ignored — from is empty. Raw: $raw');
+          break;
+        }
+        print('[WebRTC] Peer joined: $from — notifying UI then creating offer');
+        onPeerJoined?.call(from); // show peer immediately
+        try {
+          await _createOffer(from);
+        } catch (e) {
+          print('[WebRTC] _createOffer failed for $from: $e');
+        }
 
       case 'offer':
         await _handleOffer(from, msg['sdp'] as String);
