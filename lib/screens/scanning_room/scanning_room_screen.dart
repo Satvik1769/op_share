@@ -13,9 +13,12 @@ import 'radar_node.dart';
 import 'radar_painter.dart';
 import 'node_avatar.dart';
 import 'peer_list_tile.dart';
+import 'nearby_users_sheet.dart';
+
 class RoomActiveScreen extends StatefulWidget {
   final String roomCode;
-  const RoomActiveScreen({super.key, this.roomCode = ''});
+  final bool isOwner;
+  const RoomActiveScreen({super.key, this.roomCode = '', this.isOwner = false});
 
   @override
   State<RoomActiveScreen> createState() => _RoomActiveScreenState();
@@ -180,6 +183,19 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     _navigateToShambles();                  // navigate ourselves
   }
 
+  void _openNearbyUsersSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => NearbyUsersSheet(
+        roomCode: widget.roomCode,
+        authToken: authToken,
+        baseUrl: appConfig.baseUrl,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -289,6 +305,32 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                       fontSize: 9,
                       letterSpacing: 2.5,
                       color: kCyan.withOpacity(0.55),)),
+              if (widget.isOwner) ...[
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _openNearbyUsersSheet,
+                  child: Container(
+                    width: 200,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(50),
+                      border: Border.all(color: kCyan.withOpacity(0.6)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'DISCOVER NEARBY',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: kCyan,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ]),
           ),
 

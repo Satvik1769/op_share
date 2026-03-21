@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:op_share_flutter/main.dart';
 import 'package:op_share_flutter/screens/auth_screens/colors.dart' as auth_colors;
+import 'package:op_share_flutter/services/invite_service.dart';
 import 'central_button.dart';
 import 'colors_room.dart';
 import 'top_status_bar.dart';
@@ -42,9 +43,25 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
   final TextEditingController _roomCodeController = TextEditingController();
   bool _isJoining = false;
 
+  late final InviteService _inviteService;
+
   @override
   void initState() {
     super.initState();
+
+    // Start the global invite listener
+    final wsUrl = appConfig.baseUrl
+        .replaceFirst(RegExp(r'^https'), 'wss')
+        .replaceFirst(RegExp(r'^http'), 'ws');
+    _inviteService = InviteService(
+      signalingUrl: '$wsUrl/ws-native',
+      authToken: authToken,
+    );
+    _inviteService.onInviteReceived = (roomCode, inviterName) {
+      if (!mounted) return;
+      _showInviteDialog(roomCode, inviterName);
+    };
+    _inviteService.connect();
 
     // 3 ripple rings with staggered delays
     _rippleControllers = List.generate(3, (i) {
@@ -95,7 +112,114 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
     _pulseCtrl.dispose();
     _scanCtrl.dispose();
     _roomCodeController.dispose();
+    _inviteService.dispose();
     super.dispose();
+  }
+
+  void _showInviteDialog(String roomCode, String inviterName) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kDarkBg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: kCyan.withOpacity(0.3)),
+        ),
+        title: Text(
+          'ROOM INVITE',
+          style: TextStyle(
+            color: kCyan,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$inviterName has invited you to join a room.',
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('CODE: ',
+                    style: TextStyle(
+                        color: kCyan.withOpacity(0.6),
+                        fontSize: 11,
+                        letterSpacing: 1)),
+                Text(
+                  roomCode,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('DECLINE',
+                style: TextStyle(
+                    color: Colors.redAccent.withOpacity(0.8),
+                    fontSize: 11,
+                    letterSpacing: 2)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                final response = await http.post(
+                  Uri.parse('$baseUrl/rooms/$roomCode/join'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer $authToken',
+                  },
+                );
+                if (!mounted) return;
+                if (response.statusCode == 200) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => RoomActiveScreen(
+                        roomCode: roomCode,
+                        isOwner: false,
+                      ),
+                    ),
+                  );
+                } else {
+                  auth_colors.showAppSnackBarFromMessenger(
+                    ScaffoldMessenger.of(context),
+                    'Could not join room (${response.statusCode})',
+                    isError: true,
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                auth_colors.showAppSnackBarFromMessenger(
+                  ScaffoldMessenger.of(context),
+                  'Network error joining room',
+                  isError: true,
+                );
+              }
+            },
+            child: Text('JOIN',
+                style: TextStyle(
+                    color: kCyan,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2)),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -118,7 +242,9 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
       if (!mounted) return;
       setState(() => _isJoining = false);
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RoomActiveScreen(roomCode: roomCode)),
+        MaterialPageRoute(
+          builder: (_) => RoomActiveScreen(roomCode: roomCode, isOwner: false),
+        ),
       );
     } else {
       auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot join room.', isError: true);
@@ -148,7 +274,9 @@ class _RoomInitiationScreenState extends State<RoomInitiationScreen>
       setState(() => _isJoining = false);
       final String roomId = data["roomId"].toString();
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RoomActiveScreen(roomCode: roomId)),
+        MaterialPageRoute(
+          builder: (_) => RoomActiveScreen(roomCode: roomId, isOwner: true),
+        ),
       );
     } else {
       auth_colors.showAppSnackBarFromMessenger(messenger, 'Something went wrong, cannot create room.', isError: true);
