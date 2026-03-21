@@ -9,14 +9,16 @@ class PeerConnection {
   final String peerId;
   RTCPeerConnection pc;
   RTCDataChannel? dataChannel;
+  bool remoteDescriptionSet = false;
+  final List<RTCIceCandidate> pendingCandidates = [];
 
   PeerConnection({required this.peerId, required this.pc});
 }
 
 class WebRTCService {
   final String roomCode;
-  final String peerId; // this device's JWT token / userId
-  final String signalingUrl; // ws://host/ws-native
+  final String peerId;
+  final String signalingUrl;
   final String authToken;
 
   WebRTCService({
@@ -29,10 +31,17 @@ class WebRTCService {
   StompClient? _stomp;
   final Map<String, PeerConnection> _peers = {};
 
+  /// Tracks peers already announced to UI — prevents duplicate onPeerJoined calls.
+  final Set<String> _announcedPeers = {};
+
   // Callbacks for the UI
   void Function(String peerId)? onPeerJoined;
   void Function(String peerId)? onPeerLeft;
   void Function(String fromPeerId, Uint8List chunk, bool isLast)? onDataReceived;
+
+  /// Called once STOMP is connected and subscribed — use this to fetch
+  /// existing room members and initiate connections to them.
+  void Function()? onStompReady;
 
   static const _iceServers = {
     'iceServers': [
@@ -47,12 +56,8 @@ class WebRTCService {
     _stomp = StompClient(
       config: StompConfig(
         url: signalingUrl,
-        webSocketConnectHeaders: {
-          'Authorization': 'Bearer $authToken',
-        },
-        stompConnectHeaders: {
-          'Authorization': 'Bearer $authToken',
-        },
+        webSocketConnectHeaders: {'Authorization': 'Bearer $authToken'},
+        stompConnectHeaders: {'Authorization': 'Bearer $authToken'},
         onConnect: _onStompConnected,
         onDisconnect: (_) {
           print('[WebRTC] STOMP disconnected');
@@ -79,23 +84,23 @@ class WebRTCService {
   void _onStompConnected(StompFrame frame) {
     print('[WebRTC] STOMP connected. Subscribing...');
 
-    // Room broadcast — USER_JOINED / USER_LEFT events
     _stomp!.subscribe(
       destination: '/topic/room/$roomCode',
       callback: (frame) {
-        print('[WebRTC] Room event received: ${frame.body}');
+        print('[WebRTC] Room event: ${frame.body}');
         if (frame.body != null) _onSignalMessage(frame.body!);
       },
     );
 
-    // User-specific queue — WebRTC signals (offer / answer / ice-candidate)
     _stomp!.subscribe(
       destination: '/user/queue/signal',
       callback: (frame) {
-        print('[WebRTC] Signal received: ${frame.body}');
+        print('[WebRTC] Signal: ${frame.body}');
         if (frame.body != null) _onSignalMessage(frame.body!);
       },
     );
+
+    onStompReady?.call();
   }
 
   void _onDisconnected() {
@@ -103,33 +108,38 @@ class WebRTCService {
       p.pc.close();
     }
     _peers.clear();
+    _announcedPeers.clear();
+  }
+
+  /// Calls onPeerJoined exactly once per peer. Safe to call multiple times.
+  void _announceJoined(String remotePeerId) {
+    if (_announcedPeers.contains(remotePeerId)) return;
+    _announcedPeers.add(remotePeerId);
+    print('[WebRTC] Announcing joined: $remotePeerId');
+    onPeerJoined?.call(remotePeerId);
+  }
+
+  void _announcePeerLeft(String remotePeerId) {
+    _announcedPeers.remove(remotePeerId);
+    onPeerLeft?.call(remotePeerId);
   }
 
   // ── Handle incoming signaling messages ──────────────────────────────
   void _onSignalMessage(String raw) async {
     final msg = jsonDecode(raw) as Map<String, dynamic>;
-    // Room events use 'eventType'; WebRTC signals use 'type'
     final type = (msg['type'] ?? msg['eventType'] ?? '') as String;
-    // Server sets 'from' server-side; room events use 'peerId'
     final from = (msg['from'] ?? msg['peerId'] ?? '').toString();
 
-    print('[WebRTC] Signal type=$type from=$from (myId=$peerId)');
+    print('[WebRTC] type=$type from=$from (me=$peerId)');
 
-    if (from == peerId) {
-      print('[WebRTC] Ignoring own echo');
-      return;
-    }
+    if (from == peerId) return;
 
     switch (type) {
       case 'USER_JOINED':
       case 'user_joined':
       case 'join':
-        if (from.isEmpty) {
-          print('[WebRTC] USER_JOINED ignored — from is empty. Raw: $raw');
-          break;
-        }
-        print('[WebRTC] Peer joined: $from — notifying UI then creating offer');
-        onPeerJoined?.call(from); // show peer immediately
+        if (from.isEmpty) break;
+        _announceJoined(from);
         try {
           await _createOffer(from);
         } catch (e) {
@@ -140,22 +150,49 @@ class WebRTCService {
         await _handleOffer(from, msg['sdp'] as String);
 
       case 'answer':
-        await _peers[from]?.pc.setRemoteDescription(
+        final peer = _peers[from];
+        if (peer == null) break;
+        await peer.pc.setRemoteDescription(
           RTCSessionDescription(msg['sdp'] as String, 'answer'),
         );
+        peer.remoteDescriptionSet = true;
+        await _flushPendingCandidates(peer);
+        // Offerer side: announce once answer is established
+        _announceJoined(from);
 
       case 'ice-candidate':
-        await _peers[from]?.pc.addCandidate(RTCIceCandidate(
+        final peer = _peers[from];
+        if (peer == null) break;
+        final candidate = RTCIceCandidate(
           msg['candidate'] as String,
           msg['sdpMid'] as String?,
           msg['sdpMLineIndex'] as int?,
-        ));
+        );
+        if (peer.remoteDescriptionSet) {
+          await peer.pc.addCandidate(candidate);
+        } else {
+          print('[WebRTC] Buffering ICE candidate for $from');
+          peer.pendingCandidates.add(candidate);
+        }
 
       case 'leave':
         _peers[from]?.pc.close();
         _peers.remove(from);
-        onPeerLeft?.call(from);
+        _announcePeerLeft(from);
     }
+  }
+
+  Future<void> _flushPendingCandidates(PeerConnection peer) async {
+    if (peer.pendingCandidates.isEmpty) return;
+    print('[WebRTC] Flushing ${peer.pendingCandidates.length} buffered ICE candidates for ${peer.peerId}');
+    for (final c in peer.pendingCandidates) {
+      try {
+        await peer.pc.addCandidate(c);
+      } catch (e) {
+        print('[WebRTC] addCandidate error: $e');
+      }
+    }
+    peer.pendingCandidates.clear();
   }
 
   // ── Create peer connection ───────────────────────────────────────────
@@ -173,10 +210,13 @@ class WebRTCService {
     };
 
     pc.onConnectionState = (state) {
+      print('[WebRTC] $remotePeerId → $state');
       if (state == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
           state == RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
-        _peers.remove(remotePeerId);
-        onPeerLeft?.call(remotePeerId);
+        if (_peers[remotePeerId]?.pc == pc) {
+          _peers.remove(remotePeerId);
+          _announcePeerLeft(remotePeerId);
+        }
       }
     };
 
@@ -185,17 +225,20 @@ class WebRTCService {
 
   // ── Initiator: create offer ──────────────────────────────────────────
   Future<void> _createOffer(String remotePeerId) async {
+    if (_peers.containsKey(remotePeerId)) {
+      _peers[remotePeerId]?.dataChannel?.close();
+      _peers[remotePeerId]?.pc.close();
+      _peers.remove(remotePeerId);
+    }
     final pc = await _createPc(remotePeerId);
 
-    // Create data channel before offer so it's included in SDP
     final dc = await pc.createDataChannel(
       'fileTransfer',
       RTCDataChannelInit()
         ..ordered = true
         ..maxRetransmits = 30,
     );
-    final peer = PeerConnection(peerId: remotePeerId, pc: pc)
-      ..dataChannel = dc;
+    final peer = PeerConnection(peerId: remotePeerId, pc: pc)..dataChannel = dc;
     _peers[remotePeerId] = peer;
     _setupDataChannel(dc, remotePeerId);
 
@@ -207,23 +250,41 @@ class WebRTCService {
 
   // ── Receiver: handle offer, send answer ─────────────────────────────
   Future<void> _handleOffer(String remotePeerId, String sdp) async {
+    // Glare resolution: both sides sent offers simultaneously.
+    // The peer with the lower ID yields and becomes the answerer.
+    // The peer with the higher ID ignores the incoming offer and waits for its answer.
+    if (_peers.containsKey(remotePeerId)) {
+      if (peerId.compareTo(remotePeerId) > 0) {
+        print('[WebRTC] Glare: we have higher ID ($peerId > $remotePeerId), ignoring their offer');
+        return;
+      }
+      // We have lower ID — close our outgoing offer and become answerer
+      print('[WebRTC] Glare: we have lower ID ($peerId < $remotePeerId), yielding to their offer');
+      _peers[remotePeerId]?.dataChannel?.close();
+      _peers[remotePeerId]?.pc.close();
+      _peers.remove(remotePeerId);
+    }
+
     final pc = await _createPc(remotePeerId);
     final peer = PeerConnection(peerId: remotePeerId, pc: pc);
     _peers[remotePeerId] = peer;
 
-    // Data channel created by initiator arrives here
     pc.onDataChannel = (dc) {
       peer.dataChannel = dc;
       _setupDataChannel(dc, remotePeerId);
     };
 
     await pc.setRemoteDescription(RTCSessionDescription(sdp, 'offer'));
+    peer.remoteDescriptionSet = true;
+    await _flushPendingCandidates(peer);
+
     final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
     _send({'type': 'answer', 'to': remotePeerId, 'sdp': answer.sdp});
 
-    onPeerJoined?.call(remotePeerId);
+    // Answerer side: announce once answer is sent
+    _announceJoined(remotePeerId);
   }
 
   // ── DataChannel: receive chunks ──────────────────────────────────────
@@ -235,6 +296,18 @@ class WebRTCService {
         onDataReceived?.call(remotePeerId, bytes, isLast);
       }
     };
+  }
+
+  // ── Proactively connect to a peer already in the room ────────────────
+  Future<void> connectToPeer(String remotePeerId) async {
+    if (remotePeerId == peerId) return;
+    if (_peers.containsKey(remotePeerId)) return;
+    print('[WebRTC] Proactively connecting to $remotePeerId');
+    try {
+      await _createOffer(remotePeerId);
+    } catch (e) {
+      print('[WebRTC] connectToPeer failed for $remotePeerId: $e');
+    }
   }
 
   // ── Send file to a specific peer ─────────────────────────────────────
@@ -249,7 +322,6 @@ class WebRTCService {
     }
   }
 
-  // ── Broadcast file to all connected peers ────────────────────────────
   Future<void> broadcastFile(Uint8List bytes) async {
     for (final id in _peers.keys) {
       await sendFile(id, bytes);
@@ -273,6 +345,7 @@ class WebRTCService {
       p.pc.close();
     }
     _peers.clear();
+    _announcedPeers.clear();
     _stomp?.deactivate();
   }
 }

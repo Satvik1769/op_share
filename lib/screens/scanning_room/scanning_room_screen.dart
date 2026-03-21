@@ -85,6 +85,25 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     _initWebRTC();
   }
 
+  Future<void> _fetchAndConnectExistingPeers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${appConfig.baseUrl}/rooms/${widget.roomCode}/peers'),
+        headers: {'Authorization': 'Bearer $authToken'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List members = data is List ? data : (data['members'] ?? data['peers'] ?? []);
+        for (final m in members) {
+          final memberId = (m is Map ? (m['userId'] ?? m['peerId'] ?? m['id']) : m).toString();
+          await _webrtc.connectToPeer(memberId);
+        }
+      }
+    } catch (e) {
+      print('[Radar] fetchExistingPeers error: $e');
+    }
+  }
+
   void _initWebRTC() {
     final wsUrl = appConfig.baseUrl
         .replaceFirst(RegExp(r'^https'), 'wss')
@@ -97,9 +116,12 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
       authToken: authToken,
     );
 
+    _webrtc.onStompReady = () => _fetchAndConnectExistingPeers();
+
     _webrtc.onPeerJoined = (peerId) {
       print('[Radar] onPeerJoined called: $peerId mounted=$mounted');
       if (!mounted) return;
+      if (_visibleNodes.any((n) => n.peerName == peerId)) return; // dedup guard
       final node = RadarNode(
         label: peerId.substring(0, min(8, peerId.length)).toUpperCase(),
         angle: _rng.nextDouble() * 2 * pi,
