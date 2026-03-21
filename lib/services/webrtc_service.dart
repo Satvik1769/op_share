@@ -43,6 +43,9 @@ class WebRTCService {
   /// existing room members and initiate connections to them.
   void Function()? onStompReady;
 
+  /// Called when any peer (including this one) triggers a shambles navigation.
+  void Function()? onNavigateToShambles;
+
   static const _iceServers = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
@@ -175,10 +178,20 @@ class WebRTCService {
           peer.pendingCandidates.add(candidate);
         }
 
+      case 'navigate_to_shambles':
+        onNavigateToShambles?.call();
+
       case 'leave':
         _peers[from]?.pc.close();
         _peers.remove(from);
         _announcePeerLeft(from);
+    }
+  }
+
+  /// Sends navigate_to_shambles to every connected peer individually.
+  void broadcastNavigateToShambles() {
+    for (final id in _peers.keys) {
+      _send({'type': 'navigate_to_shambles', 'to': id});
     }
   }
 
@@ -339,7 +352,10 @@ class WebRTCService {
   }
 
   void dispose() {
-    _send({'type': 'leave', 'peerId': peerId});
+    // Notify each peer individually — server requires a 'to' field
+    for (final id in _peers.keys) {
+      _send({'type': 'leave', 'to': id});
+    }
     for (final p in _peers.values) {
       p.dataChannel?.close();
       p.pc.close();

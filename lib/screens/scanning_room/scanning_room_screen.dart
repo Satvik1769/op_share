@@ -141,6 +141,11 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
       setState(() => _visibleNodes.removeWhere((n) => n.peerName == peerId));
     };
 
+    _webrtc.onNavigateToShambles = () {
+      if (!mounted) return;
+      _navigateToShambles();
+    };
+
     _webrtc.connect();
   }
 
@@ -154,7 +159,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     super.dispose();
   }
 
-  void _goToShambles() {
+  void _navigateToShambles() {
     Navigator.of(context).push(PageRouteBuilder(
       transitionDuration: const Duration(milliseconds: 600),
       pageBuilder: (_, __, ___) =>
@@ -162,14 +167,17 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
       transitionsBuilder: (_, animation, __, child) => FadeTransition(
         opacity: animation,
         child: SlideTransition(
-          position: Tween<Offset>(
-              begin: const Offset(0, 0.05), end: Offset.zero)
-              .animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
+              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
           child: child,
         ),
       ),
     ));
+  }
+
+  void _goToShambles() {
+    _webrtc.broadcastNavigateToShambles(); // tell all peers to navigate
+    _navigateToShambles();                  // navigate ourselves
   }
 
   @override
