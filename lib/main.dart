@@ -8,8 +8,8 @@ String authToken = '';
 String currentUserId = '';
 
 void main() {
-  appConfig = EnvConfig.dev;
-  runApp(const MyApp(config: EnvConfig.dev));
+  appConfig = EnvConfig.prod;
+  runApp(const MyApp(config: EnvConfig.prod));
 }
 
 class MyApp extends StatelessWidget {
