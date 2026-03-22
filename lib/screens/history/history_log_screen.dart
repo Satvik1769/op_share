@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:op_share_flutter/screens/file_screen/manifest_entry.dart';
+import 'package:op_share_flutter/screens/file_screen/transfer_status.dart';
+import 'package:op_share_flutter/services/staging_store.dart';
 import 'log_entry.dart';
 import 'log_status.dart';
+
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 class HistoryLogScreen extends StatefulWidget {
@@ -16,45 +20,75 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
-  final List<String> _filters = ['ALL_EVENTS', 'LINKED', 'ABORTED'];
+  // 0=ALL  1=SENT  2=RECEIVED  3=ABORTED
+  final List<String> _filters = ['ALL', 'SENT', 'RECEIVED', 'ABORTED'];
 
-  final List<LogEntry> _entries = const [
-    LogEntry(
-      id: '1',
-      name: 'SHAMBLES: HEART_PIRATE_04',
-      dataNodes: '3 DATA_NODES',
-      swapped: '1.2GB SWAPPED',
-      timestamp: '14:28 UTC',
-      status: LogStatus.success,
-      sourceFingerprint: '0x7F4L_8821_SUB_ROUTINE_ALPHA',
-    ),
-    LogEntry(
-      id: '2',
-      name: 'SHAMBLES: EUSTASS_KID_88',
-      dataNodes: '1 DATA_NODE',
-      swapped: '450MB SWAPPED',
-      timestamp: '13:10 UTC',
-      status: LogStatus.success,
-    ),
-    LogEntry(
-      id: '3',
-      name: 'SHAMBLES: BLACKBEARD_ADM',
-      dataNodes: 'CONNECTION_LOST',
-      swapped: 'ROOM_STABILITY: LOW',
-      timestamp: '08:31 UTC',
-      status: LogStatus.aborted,
-      errorLog: 'PROTOCOL_MISMATCH: Peer refused spatial swap.',
-    ),
-    LogEntry(
-      id: '4',
-      name: 'SHAMBLES: STRAW_HAT_L',
-      dataNodes: '12 DATA_NODES',
-      swapped: '6.6GB SWAPPED',
-      timestamp: 'Yesterday 21:16',
-      status: LogStatus.success,
-      stabilityLevel: 'STABILITY_LEVEL: LOW',
-    ),
-  ];
+  StagingStore get _store => StagingStore.instance;
+
+  // Convert a ManifestEntry → LogEntry for display
+  LogEntry _toLogEntry(ManifestEntry m, int index) {
+    LogStatus logStatus;
+    switch (m.status) {
+      case TransferStatus.received:
+        logStatus = LogStatus.received;
+      case TransferStatus.interrupted:
+        logStatus = LogStatus.aborted;
+      case TransferStatus.syncing:
+        logStatus = LogStatus.linked;
+      default:
+        logStatus = LogStatus.success;
+    }
+
+    final isReceived = m.status == TransferStatus.received;
+    final isFailed = m.status == TransferStatus.interrupted;
+    final shortTarget = m.target.length > 12
+        ? m.target.substring(0, 12).toUpperCase()
+        : m.target.toUpperCase();
+
+    return LogEntry(
+      id: index.toString(),
+      name: 'SHAMBLES: ${m.filename.split('.').first.toUpperCase()}',
+      dataNodes: isReceived ? 'FROM: $shortTarget' : 'TO: $shortTarget',
+      swapped: m.size,
+      timestamp: _formatTimestamp(m.timestamp),
+      status: logStatus,
+      sourceFingerprint: 'ROOM: ${m.room}  •  ${m.filename}',
+      errorLog: isFailed ? 'TRANSFER_INTERRUPTED: connection lost.' : null,
+    );
+  }
+
+  String _formatTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inDays == 0) {
+      final h = dt.hour.toString().padLeft(2, '0');
+      final m = dt.minute.toString().padLeft(2, '0');
+      return '$h:$m';
+    }
+    if (diff.inDays == 1) return 'Yesterday';
+    return '${dt.day}/${dt.month}';
+  }
+
+  List<LogEntry> get _allEntries {
+    final history = _store.transferHistory;
+    return List.generate(history.length, (i) => _toLogEntry(history[i], i));
+  }
+
+  List<LogEntry> get _filteredEntries {
+    final all = _allEntries;
+    switch (_selectedFilter) {
+      case 1: // SENT
+        return all.where((e) => e.status == LogStatus.success || e.status == LogStatus.linked).toList();
+      case 2: // RECEIVED
+        return all.where((e) => e.status == LogStatus.received).toList();
+      case 3: // ABORTED
+        return all.where((e) => e.status == LogStatus.aborted).toList();
+      default:
+        return all;
+    }
+  }
 
   @override
   void initState() {
@@ -74,34 +108,22 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
     super.dispose();
   }
 
-  List<LogEntry> get _filteredEntries {
-    switch (_selectedFilter) {
-      case 1:
-        return _entries
-            .where((e) => e.status == LogStatus.linked)
-            .toList();
-      case 2:
-        return _entries
-            .where((e) => e.status == LogStatus.aborted)
-            .toList();
-      default:
-        return _entries;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF080C11),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildActiveCard(),
-            _buildFilterRow(),
-            _buildSequenceLabel(),
-            Expanded(child: _buildLogList()),
-          ],
+        child: ListenableBuilder(
+          listenable: _store,
+          builder: (context, _) => Column(
+            children: [
+              _buildHeader(),
+              if (_store.transferHistory.isNotEmpty) _buildActiveCard(),
+              _buildFilterRow(),
+              _buildSequenceLabel(),
+              Expanded(child: _buildLogList()),
+            ],
+          ),
         ),
       ),
     );
@@ -146,6 +168,10 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
   // ─── Active Card ──────────────────────────────────────────────────────────
 
   Widget _buildActiveCard() {
+    final latest = _store.transferHistory.first;
+    final totalFiles = _store.transferHistory.length;
+    final isReceived = latest.status == TransferStatus.received;
+
     return Container(
       margin: const EdgeInsets.all(14),
       padding: const EdgeInsets.all(14),
@@ -183,13 +209,22 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                 ),
               ),
               const SizedBox(width: 7),
-              const Text(
-                'ACTIVE_LINK_STABLE',
-                style: TextStyle(
+              Text(
+                isReceived ? 'LAST_RECEIVED' : 'LAST_SENT',
+                style: const TextStyle(
                   color: Color(0xFF00FFC8),
                   fontSize: 9,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 1.8,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _formatTimestamp(latest.timestamp),
+                style: const TextStyle(
+                  color: Color(0xFF3A5070),
+                  fontSize: 9,
                   fontFamily: 'monospace',
                 ),
               ),
@@ -203,19 +238,20 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'LATEST_SHAMBLES',
-                      style: TextStyle(
+                    Text(
+                      latest.filename.split('.').first.toUpperCase(),
+                      style: const TextStyle(
                         color: Color(0xFFD4E8FF),
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
                         fontFamily: 'monospace',
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'ID: R00M_A1_77XP',
+                      'ROOM: ${latest.room}',
                       style: TextStyle(
                         color: const Color(0xFF4A6080).withOpacity(0.9),
                         fontSize: 10,
@@ -223,8 +259,17 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                         fontFamily: 'monospace',
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${latest.size}  •  ${isReceived ? 'FROM' : 'TO'}: ${latest.target.length > 10 ? latest.target.substring(0, 10) : latest.target}',
+                      style: const TextStyle(
+                        color: Color(0xFF2E4A6A),
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    _buildViewManifestButton(),
+                    _buildViewManifestButton(totalFiles),
                   ],
                 ),
               ),
@@ -237,9 +282,9 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
     );
   }
 
-  Widget _buildViewManifestButton() {
+  Widget _buildViewManifestButton(int totalFiles) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => Navigator.of(context).pop(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
@@ -268,9 +313,9 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                 color: const Color(0xFF00FFC8).withOpacity(0.25),
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text(
-                '+2',
-                style: TextStyle(
+              child: Text(
+                '+$totalFiles',
+                style: const TextStyle(
                   color: Color(0xFF00FFC8),
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
@@ -299,7 +344,6 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
       ),
       child: Stack(
         children: [
-          // Vertical light beams
           ...List.generate(4, (i) {
             return Positioned(
               left: 8.0 + i * 16,
@@ -347,46 +391,49 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
 
   Widget _buildFilterRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: List.generate(_filters.length, (i) {
-          final active = _selectedFilter == i;
-          return Padding(
-            padding: EdgeInsets.only(right: i < _filters.length - 1 ? 8 : 0),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedFilter = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: active
-                      ? const Color(0xFF00FFC8).withOpacity(0.15)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(_filters.length, (i) {
+            final active = _selectedFilter == i;
+            return Padding(
+              padding: EdgeInsets.only(right: i < _filters.length - 1 ? 8 : 0),
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedFilter = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
                     color: active
-                        ? const Color(0xFF00FFC8).withOpacity(0.6)
-                        : const Color(0xFF1C2A3A),
-                    width: 1,
+                        ? const Color(0xFF00FFC8).withOpacity(0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: active
+                          ? const Color(0xFF00FFC8).withOpacity(0.6)
+                          : const Color(0xFF1C2A3A),
+                      width: 1,
+                    ),
                   ),
-                ),
-                child: Text(
-                  _filters[i],
-                  style: TextStyle(
-                    color: active
-                        ? const Color(0xFF00FFC8)
-                        : const Color(0xFF3A5070),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    fontFamily: 'monospace',
+                  child: Text(
+                    _filters[i],
+                    style: TextStyle(
+                      color: active
+                          ? const Color(0xFF00FFC8)
+                          : const Color(0xFF3A5070),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -394,12 +441,13 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
   // ─── Sequence Label ───────────────────────────────────────────────────────
 
   Widget _buildSequenceLabel() {
+    final count = _filteredEntries.length;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
       child: Row(
         children: [
           Text(
-            'TEMPORAL_SEQUENCE_LOGS',
+            'TEMPORAL_SEQUENCE_LOGS ($count)',
             style: TextStyle(
               color: const Color(0xFF2A4060).withOpacity(0.9),
               fontSize: 9,
@@ -409,12 +457,7 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: const Color(0xFF1A2840),
-            ),
-          ),
+          Expanded(child: Container(height: 1, color: const Color(0xFF1A2840))),
         ],
       ),
     );
@@ -426,14 +469,32 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
     final entries = _filteredEntries;
     if (entries.isEmpty) {
       return Center(
-        child: Text(
-          'NO_ENTRIES_FOUND',
-          style: TextStyle(
-            color: const Color(0xFF2A4060).withOpacity(0.7),
-            fontFamily: 'monospace',
-            fontSize: 12,
-            letterSpacing: 2,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.history_outlined,
+                color: const Color(0xFF2A4060).withOpacity(0.4), size: 40),
+            const SizedBox(height: 12),
+            Text(
+              'NO_ENTRIES_FOUND',
+              style: TextStyle(
+                color: const Color(0xFF2A4060).withOpacity(0.7),
+                fontFamily: 'monospace',
+                fontSize: 12,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Send or receive files to build history.',
+              style: TextStyle(
+                color: const Color(0xFF2A4060).withOpacity(0.4),
+                fontFamily: 'monospace',
+                fontSize: 9,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -495,7 +556,7 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${entry.dataNodes} • ${entry.swapped}',
+                  '${entry.dataNodes}  •  ${entry.swapped}',
                   style: TextStyle(
                     color: const Color(0xFF2E4A6A).withOpacity(0.9),
                     fontSize: 9.5,
@@ -517,18 +578,6 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
                     label: 'ERROR_LOG',
                     value: entry.errorLog!,
                     color: const Color(0xFFFF4D4D),
-                  ),
-                ],
-                if (entry.stabilityLevel != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    entry.stabilityLevel!,
-                    style: TextStyle(
-                      color: const Color(0xFF2E4A6A).withOpacity(0.7),
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                      letterSpacing: 0.8,
-                    ),
                   ),
                 ],
                 const SizedBox(height: 6),
@@ -556,6 +605,19 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
           child: const Icon(Icons.warning_amber_rounded,
               color: Color(0xFFFF4D4D), size: 14),
         );
+      case LogStatus.received:
+        return Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: Colors.greenAccent.withOpacity(0.08),
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: Colors.greenAccent.withOpacity(0.35), width: 1),
+          ),
+          child: const Icon(Icons.download_outlined,
+              color: Colors.greenAccent, size: 14),
+        );
       case LogStatus.linked:
         return Container(
           width: 28,
@@ -568,7 +630,7 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
           ),
           child: const Icon(Icons.link, color: Color(0xFF00A8FF), size: 14),
         );
-      default:
+      default: // success / sent
         return Container(
           width: 28,
           height: 28,
@@ -578,7 +640,7 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
             border: Border.all(
                 color: const Color(0xFF00FFC8).withOpacity(0.25), width: 1),
           ),
-          child: Icon(Icons.swap_horiz,
+          child: Icon(Icons.upload_outlined,
               color: const Color(0xFF00FFC8).withOpacity(0.7), size: 14),
         );
     }
@@ -631,14 +693,15 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
       case LogStatus.aborted:
         color = const Color(0xFFFF4D4D);
         label = '• ABORTED';
-        break;
+      case LogStatus.received:
+        color = Colors.greenAccent;
+        label = '• RECEIVED';
       case LogStatus.linked:
         color = const Color(0xFF00A8FF);
-        label = '• LINKED';
-        break;
+        label = '• SYNCING';
       default:
         color = const Color(0xFF00FFC8);
-        label = '• SUCCESS';
+        label = '• SENT';
     }
     return Text(
       label,
@@ -651,5 +714,4 @@ class _HistoryLogScreenState extends State<HistoryLogScreen>
       ),
     );
   }
-
 }

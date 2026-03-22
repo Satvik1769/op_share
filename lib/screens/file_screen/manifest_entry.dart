@@ -7,13 +7,15 @@ class ManifestEntry {
   final String room;
   final TransferStatus status;
   final String? savedPath; // non-null for received files
+  final DateTime timestamp;
 
-  const ManifestEntry({
+  ManifestEntry({
     required this.filename,
     required this.size,
     required this.target,
     required this.room,
     required this.status,
     this.savedPath,
-  });
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
 }

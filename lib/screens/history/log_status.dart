@@ -1,1 +1,1 @@
-enum LogStatus { success, aborted, linked }
+enum LogStatus { success, aborted, linked, received }
