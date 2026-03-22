@@ -1,18 +1,14 @@
-import 'dart:convert';
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:opShare/screens/auth_screens/contact_screen/phone_formatter.dart';
-import '../../../main.dart';
 import '../../room_intitiation/top_status_bar.dart';
 import '../colors.dart';
 import '../otp_screen/otp_screen.dart';
 import 'corner_bracket_painter.dart';
 import 'dashed_circle_painter.dart';
-
-String baseUrl = appConfig.baseUrl;
 
 
 class AuthRequestScreen extends StatefulWidget {
@@ -90,47 +86,49 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     super.dispose();
   }
 
-  Future<void> sendOtp(String phoneNumber) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/send-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'contactNumber': phoneNumber}),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to send OTP: ${response.statusCode}');
-    }
-  }
+  int? _resendToken;
 
   void _requestToken() async {
     final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) return;
     setState(() => _isLoading = true);
-    try {
-      await sendOtp(digits);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      showAppSnackBar(context, 'Failed to send OTP. Please try again.');
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    Navigator.of(context).push(PageRouteBuilder(
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (_, __, ___) =>
-          VerifyOtpScreen(phoneNumber: _phoneController.text),
-      transitionsBuilder: (_, animation, __, child) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-                  begin: const Offset(0.05, 0), end: Offset.zero)
-              .animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-          child: child,
-        ),
-      ),
-    ));
+
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: '+91$digits',
+      forceResendingToken: _resendToken,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        // Auto-verified on Android — sign in immediately
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        showAppSnackBar(context, e.message ?? 'Failed to send OTP. Please try again.');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _resendToken = resendToken;
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        Navigator.of(context).push(PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 400),
+          pageBuilder: (_, __, ___) => VerifyOtpScreen(
+            phoneNumber: _phoneController.text,
+            verificationId: verificationId,
+          ),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                      begin: const Offset(0.05, 0), end: Offset.zero)
+                  .animate(CurvedAnimation(
+                      parent: animation, curve: Curves.easeOut)),
+              child: child,
+            ),
+          ),
+        ));
+      },
+      codeAutoRetrievalTimeout: (_) {},
+    );
   }
 
   @override

@@ -1,10 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import '../../../main.dart';
 import '../../room_intitiation/room_initiation_screen.dart';
 import '../colors.dart';
@@ -13,11 +9,10 @@ import 'otp_scanner_widget.dart';
 import 'otp_title.dart';
 import 'otp_form.dart';
 
-String baseUrl = appConfig.baseUrl;
-
 class VerifyOtpScreen extends StatefulWidget {
   final String phoneNumber;
-  const VerifyOtpScreen({super.key, required this.phoneNumber});
+  final String verificationId;
+  const VerifyOtpScreen({super.key, required this.phoneNumber, required this.verificationId});
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -32,6 +27,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   bool _isLoading = false;
   bool _isVerified = false;
   int _resendSeconds = 30;
+  late String _verificationId;
+  int? _resendToken;
 
   late AnimationController _ringRotate;
   late AnimationController _ringPulse;
@@ -47,6 +44,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   @override
   void initState() {
     super.initState();
+    _verificationId = widget.verificationId;
 
     _ringRotate = AnimationController(
       vsync: this,
@@ -131,62 +129,38 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   }
 
 
-  Future<Map<String, String>> _getDeviceInfo() async {
-    final deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      final info = await deviceInfo.androidInfo;
-      return {
-        'deviceId': info.id,
-        'deviceName': info.model,
-        'deviceType': 'ANDROID',
-      };
-    } else if (Platform.isIOS) {
-      final info = await deviceInfo.iosInfo;
-      return {
-        'deviceId': info.identifierForVendor ?? '',
-        'deviceName': info.name,
-        'deviceType': 'IOS',
-      };
-    }
-    return {'deviceId': '', 'deviceName': '', 'deviceType': 'UNKNOWN'};
-  }
-
   Future<void> verifyOtp() async {
-    final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
-    final device = await _getDeviceInfo();
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contactNumber': digits,
-        'otpCode': _otpValue,
-        ...device,
-      }),
+    final credential = PhoneAuthProvider.credential(
+      verificationId: _verificationId,
+      smsCode: _otpValue,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception('Failed to verify OTP: ${response.statusCode}');
-    }
-
-    final data = jsonDecode(response.body);
-    authToken = data['token'] as String;
-    currentUserId = _extractUserIdFromJwt(authToken);
+    final userCredential =
+        await FirebaseAuth.instance.signInWithCredential(credential);
+    final user = userCredential.user!;
+    authToken = await user.getIdToken() ?? '';
+    currentUserId = user.uid;
   }
 
-  String _extractUserIdFromJwt(String token) {
-    try {
-      final parts = token.split('.');
-      if (parts.length < 2) return '';
-      final payload = parts[1];
-      // Base64url → base64 padding
-      final normalized = base64Url.normalize(payload);
-      final decoded = utf8.decode(base64Url.decode(normalized));
-      final claims = jsonDecode(decoded) as Map<String, dynamic>;
-      return claims['sub']?.toString() ?? '';
-    } catch (_) {
-      return '';
-    }
+  Future<void> _resendOtp() async {
+    final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
+    setState(() => _resendSeconds = 30);
+    _startResendTimer();
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: '+91$digits',
+      forceResendingToken: _resendToken,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        if (!mounted) return;
+        showAppSnackBar(context, e.message ?? 'Failed to resend OTP.');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        _verificationId = verificationId;
+        _resendToken = resendToken;
+      },
+      codeAutoRetrievalTimeout: (_) {},
+    );
   }
 
   void _verifyOtp() async {
@@ -256,10 +230,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
                     resendSeconds: _resendSeconds,
                     btnGlowAnim: _btnGlowAnim,
                     onVerify: _verifyOtp,
-                    onResend: () {
-                      setState(() => _resendSeconds = 30);
-                      _startResendTimer();
-                    },
+                    onResend: _resendOtp,
                     onDigitChanged: _onDigitChanged,
                     onKeyEvent: _onKeyEvent,
                   ),
