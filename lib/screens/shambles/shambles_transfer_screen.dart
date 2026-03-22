@@ -60,7 +60,9 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   bool _isApiUploading = false;
   bool _isPicking = false;
   double _uploadProgress = 0;
-  final double _speedMbps = 309;
+  double _speedMbps = 0;
+  int _etaSeconds = 0;
+  final List<(DateTime, int)> _speedSamples = [];
   int _selectedTab = 0; // TRANSFER tab
 
   // Incoming transfer state (receiver side)
@@ -229,6 +231,9 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
       _isBroadcasting = true;
       _isApiUploading = false;
       _uploadProgress = 0;
+      _speedMbps = 0;
+      _etaSeconds = 0;
+      _speedSamples.clear();
       for (final f in _files) {
         f.status = FileStatus.transferring;
         f.progress = 0;
@@ -254,9 +259,33 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
           name: f.name,
           ext: f.ext,
           onProgress: (p) {
-            if (mounted) {
-              setState(() => _uploadProgress = (fileIndex + p) / total);
+            if (!mounted) return;
+            final now = DateTime.now();
+            final bytesSent = (p * f.bytes!.length).round();
+
+            // Rolling window of 5 samples (~320 KB of data)
+            _speedSamples.add((now, bytesSent));
+            if (_speedSamples.length > 5) _speedSamples.removeAt(0);
+
+            double speedBps = 0;
+            if (_speedSamples.length >= 2) {
+              final first = _speedSamples.first;
+              final last = _speedSamples.last;
+              final deltaBytes = last.$2 - first.$2;
+              final deltaSecs = last.$1.difference(first.$1).inMilliseconds / 1000.0;
+              if (deltaSecs > 0) speedBps = deltaBytes / deltaSecs;
             }
+
+            final newProgress = (fileIndex + p) / total;
+            final totalBytes = _files.fold<int>(0, (s, f) => s + (f.bytes?.length ?? 0));
+            final remaining = ((1.0 - newProgress) * totalBytes).round();
+            final eta = speedBps > 0 ? (remaining / speedBps).ceil() : 0;
+
+            setState(() {
+              _uploadProgress = newProgress;
+              _speedMbps = speedBps / (1024 * 1024);
+              _etaSeconds = eta;
+            });
           },
         );
       }
@@ -684,9 +713,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
                       percent: showPct,
                       peersInRange: widget.peers.length,
                       speedMbps: _speedMbps,
-                      etaSeconds: showPct >= 100
-                          ? 0
-                          : ((1.0 - (showPct / 100)) * 10).ceil(),
+                      etaSeconds: showPct >= 100 ? 0 : _etaSeconds,
                     );
                   },
                 )

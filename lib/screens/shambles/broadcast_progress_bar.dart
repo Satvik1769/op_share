@@ -17,6 +17,20 @@ class BroadcastProgressBar extends StatelessWidget {
     required this.etaSeconds,
   });
 
+  static String _formatSpeed(double mbps) {
+    if (mbps <= 0) return '-- KB/s';
+    if (mbps < 1) return '${(mbps * 1024).toStringAsFixed(0)} KB/s';
+    return '${mbps.toStringAsFixed(1)} Mb/s';
+  }
+
+  static String _formatEta(int seconds) {
+    if (seconds <= 0) return '0s';
+    if (seconds < 60) return '${seconds}s';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return s == 0 ? '${m}m' : '${m}m ${s}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     final pct = percent.clamp(0.0, 100.0);
@@ -71,18 +85,12 @@ class BroadcastProgressBar extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('$peersInRange peers in range',
-              style: TextStyle(
-                fontSize: 9,
-                color: kCyan.withOpacity(0.55),)),
-          Text('${speedMbps.toStringAsFixed(0)} Mb/s',
-              style: TextStyle(
-                fontSize: 9,
-                color: kCyan.withOpacity(0.55),)),
-          Text(done ? 'ETA: --' : 'ETA: ${etaSeconds}s',
-              style: TextStyle(
-                fontSize: 9,
-                color: kCyan.withOpacity(0.55),)),
+          Text('$peersInRange peer${peersInRange == 1 ? '' : 's'}',
+              style: TextStyle(fontSize: 9, color: kCyan.withOpacity(0.55))),
+          Text(_formatSpeed(speedMbps),
+              style: TextStyle(fontSize: 9, color: kCyan.withOpacity(0.55))),
+          Text(done ? 'ETA: --' : 'ETA: ${_formatEta(etaSeconds)}',
+              style: TextStyle(fontSize: 9, color: kCyan.withOpacity(0.55))),
         ]),
       ]),
     );

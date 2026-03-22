@@ -233,13 +233,23 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
                 ]),
           ),
 
-          // ── Surgical Radius ───────────────────────
-          Text('SURGICAL RADIUS: 15.4M',
-              style: TextStyle(
-                  fontSize: 13,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w700,
-                  color: kCyan,)),
+          // ── Room Code ─────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('ROOM ',
+                  style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 2,
+                      color: kCyan.withOpacity(0.5))),
+              Text(widget.roomCode,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      letterSpacing: 6,
+                      fontWeight: FontWeight.w900,
+                      color: kCyan)),
+            ],
+          ),
           const SizedBox(height: 6),
 
           // ── RADAR ─────────────────────────────────
