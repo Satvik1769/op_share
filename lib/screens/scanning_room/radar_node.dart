@@ -10,9 +10,9 @@ class RadarNode {
   final String peerName;
   final String connectionType;
   final String distance;
-  final String status;
+  String status;
 
-  const RadarNode({
+  RadarNode({
     required this.label,
     required this.angle,
     required this.dist,

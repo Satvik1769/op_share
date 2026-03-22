@@ -10,6 +10,7 @@ class PeerListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isReady = node.status == 'READY';
+    final isInactive = node.status == 'INACTIVE';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -60,6 +61,16 @@ class PeerListTile extends StatelessWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: kCyan,
+                  letterSpacing: 1)),
+        ] else if (isInactive) ...[
+          const Icon(Icons.signal_cellular_off_outlined,
+              color: Colors.orange, size: 18),
+          const SizedBox(width: 4),
+          const Text('AWAY',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.orange,
                   letterSpacing: 1)),
         ] else
           Text('STANDBY',

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:math';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'package:opShare/main.dart';
 import 'package:opShare/screens/auth_screens/contact_screen/phone_formatter.dart';
 import '../../room_intitiation/top_status_bar.dart';
 import '../colors.dart';
@@ -86,35 +88,23 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
     super.dispose();
   }
 
-  int? _resendToken;
-
   void _requestToken() async {
     final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 10) return;
     setState(() => _isLoading = true);
-
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+91$digits',
-      forceResendingToken: _resendToken,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        // Auto-verified on Android — sign in immediately
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (!mounted) return;
-        setState(() => _isLoading = false);
-        showAppSnackBar(context, e.message ?? 'Failed to send OTP. Please try again.');
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        _resendToken = resendToken;
-        if (!mounted) return;
+    try {
+      final res = await http.post(
+        Uri.parse('${appConfig.baseUrl}/auth/send-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phoneNumber': '+91$digits'}),
+      );
+      if (!mounted) return;
+      if (res.statusCode == 200) {
         setState(() => _isLoading = false);
         Navigator.of(context).push(PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 400),
-          pageBuilder: (_, __, ___) => VerifyOtpScreen(
-            phoneNumber: _phoneController.text,
-            verificationId: verificationId,
-          ),
+          pageBuilder: (_, __, ___) =>
+              VerifyOtpScreen(phoneNumber: _phoneController.text),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(
             opacity: animation,
             child: SlideTransition(
@@ -126,9 +116,15 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
             ),
           ),
         ));
-      },
-      codeAutoRetrievalTimeout: (_) {},
-    );
+      } else {
+        setState(() => _isLoading = false);
+        showAppSnackBar(context, 'Failed to send OTP. Please try again.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      showAppSnackBar(context, 'Failed to send OTP. Please try again.');
+    }
   }
 
   @override

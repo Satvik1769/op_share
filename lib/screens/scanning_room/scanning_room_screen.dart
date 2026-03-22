@@ -25,7 +25,7 @@ class RoomActiveScreen extends StatefulWidget {
 }
 
 class _RoomActiveScreenState extends State<RoomActiveScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _radarCtrl;
   late final Animation<double> _radarAnim;
   late final AnimationController _nodesCtrl;
@@ -86,6 +86,16 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
     _pulseAnim = Tween<double>(begin: 0.4, end: 1.0).animate(_pulseCtrl);
 
     _initWebRTC();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _webrtc.broadcastActiveStatus(false);
+    } else if (state == AppLifecycleState.resumed) {
+      _webrtc.broadcastActiveStatus(true);
+    }
   }
 
   Future<void> _fetchAndConnectExistingPeers() async {
@@ -144,6 +154,14 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
       setState(() => _visibleNodes.removeWhere((n) => n.peerName == peerId));
     };
 
+    _webrtc.onPeerStatusChanged = (peerId, active) {
+      if (!mounted) return;
+      setState(() {
+        final idx = _visibleNodes.indexWhere((n) => n.peerName == peerId);
+        if (idx >= 0) _visibleNodes[idx].status = active ? 'READY' : 'INACTIVE';
+      });
+    };
+
     _webrtc.onNavigateToShambles = () {
       if (!mounted) return;
       _navigateToShambles();
@@ -154,6 +172,7 @@ class _RoomActiveScreenState extends State<RoomActiveScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _webrtc.dispose();
     _radarCtrl.dispose();
     _ringCtrl.dispose();

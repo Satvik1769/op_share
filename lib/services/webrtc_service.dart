@@ -50,6 +50,9 @@ class WebRTCService {
   /// Called when any peer (including this one) triggers a shambles navigation.
   void Function()? onNavigateToShambles;
 
+  /// Called when a peer broadcasts their active/inactive status.
+  void Function(String peerId, bool active)? onPeerStatusChanged;
+
   static const _iceServers = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
@@ -202,6 +205,10 @@ class WebRTCService {
           print('[WebRTC] Stored IP for $from: $ip');
         }
 
+      case 'peer_active':
+        final active = msg['active'] as bool? ?? true;
+        onPeerStatusChanged?.call(from, active);
+
       case 'navigate_to_shambles':
         onNavigateToShambles?.call();
 
@@ -216,6 +223,13 @@ class WebRTCService {
   void broadcastNavigateToShambles() {
     for (final id in _peers.keys) {
       _send({'type': 'navigate_to_shambles', 'to': id});
+    }
+  }
+
+  /// Broadcasts active/inactive presence to all connected peers.
+  void broadcastActiveStatus(bool active) {
+    for (final id in _peers.keys) {
+      _send({'type': 'peer_active', 'to': id, 'active': active});
     }
   }
 

@@ -1,6 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import '../../../main.dart';
 import '../../room_intitiation/room_initiation_screen.dart';
 import '../colors.dart';
@@ -11,8 +12,7 @@ import 'otp_form.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   final String phoneNumber;
-  final String verificationId;
-  const VerifyOtpScreen({super.key, required this.phoneNumber, required this.verificationId});
+  const VerifyOtpScreen({super.key, required this.phoneNumber});
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -27,8 +27,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   bool _isLoading = false;
   bool _isVerified = false;
   int _resendSeconds = 30;
-  late String _verificationId;
-  int? _resendToken;
 
   late AnimationController _ringRotate;
   late AnimationController _ringPulse;
@@ -44,8 +42,6 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   @override
   void initState() {
     super.initState();
-    _verificationId = widget.verificationId;
-
     _ringRotate = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
@@ -130,37 +126,29 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
 
 
   Future<void> verifyOtp() async {
-    final credential = PhoneAuthProvider.credential(
-      verificationId: _verificationId,
-      smsCode: _otpValue,
+    final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
+    final res = await http.post(
+      Uri.parse('${appConfig.baseUrl}/auth/verify-otp'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'phoneNumber': '+91$digits', 'otp': _otpValue}),
     );
-    final userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-    final user = userCredential.user!;
-    authToken = await user.getIdToken() ?? '';
-    currentUserId = user.uid;
+    if (res.statusCode != 200) throw Exception('OTP verification failed');
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    authToken = (data['token'] ?? data['accessToken'] ?? '').toString();
+    currentUserId = (data['userId'] ?? data['id'] ?? '').toString();
   }
 
   Future<void> _resendOtp() async {
     final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
     setState(() => _resendSeconds = 30);
     _startResendTimer();
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+91$digits',
-      forceResendingToken: _resendToken,
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (!mounted) return;
-        showAppSnackBar(context, e.message ?? 'Failed to resend OTP.');
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        _verificationId = verificationId;
-        _resendToken = resendToken;
-      },
-      codeAutoRetrievalTimeout: (_) {},
-    );
+    try {
+      await http.post(
+        Uri.parse('${appConfig.baseUrl}/auth/send-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phoneNumber': '+91$digits'}),
+      );
+    } catch (_) {}
   }
 
   void _verifyOtp() async {
