@@ -1,1 +1,1 @@
-enum TransferStatus { success, syncing, interrupted }
+enum TransferStatus { success, syncing, interrupted, received }

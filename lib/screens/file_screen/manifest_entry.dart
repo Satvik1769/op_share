@@ -6,6 +6,7 @@ class ManifestEntry {
   final String target;
   final String room;
   final TransferStatus status;
+  final String? savedPath; // non-null for received files
 
   const ManifestEntry({
     required this.filename,
@@ -13,5 +14,6 @@ class ManifestEntry {
     required this.target,
     required this.room,
     required this.status,
+    this.savedPath,
   });
 }

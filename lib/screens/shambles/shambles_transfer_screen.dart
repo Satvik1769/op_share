@@ -1,13 +1,18 @@
 
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
+import 'package:op_share_flutter/services/chunked_upload_service.dart';
 import 'package:op_share_flutter/services/staging_store.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../file_screen/file_screen.dart';
+import '../file_screen/manifest_entry.dart';
+import '../file_screen/transfer_status.dart';
 import '../history/history_log_screen.dart';
 import '../scanning_room/nav_item.dart';
 import '../scanning_room/radar_node.dart';
@@ -48,11 +53,22 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
 
 
   final List<TransferFile> _files = [];
+  final ChunkedUploadService _uploadService = ChunkedUploadService();
+  String? _activeUploadId;
 
   bool _isBroadcasting = false;
+  bool _isApiUploading = false;
   bool _isPicking = false;
+  double _uploadProgress = 0;
   final double _speedMbps = 309;
   int _selectedTab = 0; // TRANSFER tab
+
+  // Incoming transfer state (receiver side)
+  bool _isReceiving = false;
+  bool _receiveComplete = false;
+  int _receivedBytes = 0;
+  final Map<String, List<int>> _receiveBuffers = {};
+  final Map<String, _FileMeta> _incomingMeta = {};
 
   // Fixed dot positions around the central circle
   static const List<Offset> _dotOffsets = [
@@ -112,10 +128,49 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
       ..repeat(reverse: true);
     _pulseAnim =
         Tween<double>(begin: 0.92, end: 1.0).animate(_pulseCtrl);
+
+    // Receive file metadata (name/ext/size) before bytes arrive
+    widget.webrtc.onFileMeta = (fromPeerId, name, ext, totalSize) {
+      _incomingMeta[fromPeerId] = _FileMeta(name, ext, totalSize);
+      _receiveBuffers[fromPeerId] = [];
+      if (mounted) setState(() => _isReceiving = true);
+    };
+
+    // Listen for incoming file chunks from peers
+    widget.webrtc.onDataReceived = (fromPeerId, chunk, _) {
+      if (!mounted) return;
+      _receiveBuffers.putIfAbsent(fromPeerId, () => []);
+      _receiveBuffers[fromPeerId]!.addAll(chunk);
+
+      final meta = _incomingMeta[fromPeerId];
+      final received = _receiveBuffers[fromPeerId]!.length;
+      final isComplete = meta != null
+          ? received >= meta.totalSize
+          : chunk.length < 64 * 1024;
+
+      final totalBytes = _receiveBuffers.values.fold<int>(0, (sum, buf) => sum + buf.length);
+      setState(() {
+        _isReceiving = !isComplete;
+        _receivedBytes = totalBytes;
+        if (isComplete) {
+          _receiveComplete = true;
+          final bytes = Uint8List.fromList(_receiveBuffers[fromPeerId]!);
+          _receiveBuffers.remove(fromPeerId);
+          _incomingMeta.remove(fromPeerId);
+          _saveReceivedFile(fromPeerId, bytes, meta);
+          Future.delayed(const Duration(seconds: 4), () {
+            if (mounted) setState(() { _receiveComplete = false; _receivedBytes = 0; });
+          });
+        }
+      });
+    };
   }
 
   @override
   void dispose() {
+    if (_activeUploadId != null) {
+      _uploadService.cancelUpload(_activeUploadId!);
+    }
     _orbitCtrl.dispose();
     _broadcastCtrl.dispose();
     for (final c in _dotCtrls) c.dispose();
@@ -124,26 +179,165 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   }
 
   // ── Actions ───────────────────────────────
-  void _startBroadcast() {
+
+  /// If a previous broadcast completed, reset so "BROADCAST TO PEERS" button shows again.
+  void _resetBroadcastIfDone() {
+    if (_broadcastCtrl.isCompleted && !_isBroadcasting) {
+      _broadcastCtrl.reset();
+      for (final f in _files) {
+        f.status = FileStatus.queued;
+        f.progress = 0;
+      }
+    }
+  }
+
+  Future<void> _saveReceivedFile(
+      String fromPeerId, Uint8List bytes, _FileMeta? meta) async {
+    final name = meta?.name ?? 'file_${DateTime.now().millisecondsSinceEpoch}';
+    final ext = meta?.ext ?? 'bin';
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final receivedDir = Directory('${dir.path}/received');
+      await receivedDir.create(recursive: true);
+      // Avoid overwriting by appending a counter if file exists
+      String filePath = '${receivedDir.path}/$name.$ext';
+      int counter = 1;
+      while (await File(filePath).exists()) {
+        filePath = '${receivedDir.path}/${name}_$counter.$ext';
+        counter++;
+      }
+      await File(filePath).writeAsBytes(bytes);
+      StagingStore.instance.addReceivedFile(ManifestEntry(
+        filename: '$name.$ext',
+        size: _formatBytes(bytes.length),
+        target: fromPeerId,
+        room: widget.webrtc.roomCode,
+        status: TransferStatus.received,
+        savedPath: filePath,
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to save file: $e')));
+      }
+    }
+  }
+
+  void _startBroadcast() async {
     if (_isBroadcasting || _files.isEmpty) return;
     setState(() {
       _isBroadcasting = true;
+      _isApiUploading = false;
+      _uploadProgress = 0;
       for (final f in _files) {
         f.status = FileStatus.transferring;
         f.progress = 0;
       }
     });
-    // Push to shared store so FileScreen can show active transfers
+
     StagingStore.instance.setActiveFiles(List.from(_files));
 
-    // Send real bytes via WebRTC for each file that has bytes loaded
-    for (final f in _files) {
-      if (f.bytes != null && f.bytes!.isNotEmpty) {
-        widget.webrtc.broadcastFile(f.bytes!);
+    // Use ALL WebRTC-connected peers regardless of same-network or not.
+    // isPeerSameNetwork requires IP exchange to have completed — if that
+    // hasn't happened yet it returns false for everyone and nothing gets sent.
+    final connectedPeerIds = widget.webrtc.connectedPeerIds;
+
+    if (connectedPeerIds.isNotEmpty) {
+      final sendableFiles = _files.where((f) => f.bytes != null && f.bytes!.isNotEmpty).toList();
+      final total = sendableFiles.length;
+      for (int i = 0; i < sendableFiles.length; i++) {
+        final f = sendableFiles[i];
+        final fileIndex = i;
+        await widget.webrtc.sendFileToPeers(
+          connectedPeerIds,
+          f.bytes!,
+          name: f.name,
+          ext: f.ext,
+          onProgress: (p) {
+            if (mounted) {
+              setState(() => _uploadProgress = (fileIndex + p) / total);
+            }
+          },
+        );
       }
+      // Mark 100% when done
+      if (mounted) setState(() => _uploadProgress = 1.0);
     }
 
-    _broadcastCtrl.forward(from: 0);
+    // Drive the visual progress bar to completion
+    _broadcastCtrl.forward(from: _uploadProgress);
+
+    // API: chunked upload as fallback for peers not on WebRTC
+    final roomId = int.parse(widget.webrtc.roomCode);
+    final notConnected = widget.peers
+        .where((p) => !connectedPeerIds.contains(p.peerName))
+        .toList();
+    if (notConnected.isNotEmpty) {
+      if (mounted) setState(() => _isApiUploading = true);
+      for (final f in _files) {
+        await _uploadViaApi(f, roomId);
+      }
+      if (mounted) setState(() => _isApiUploading = false);
+    }
+  }
+
+  Future<void> _uploadViaApi(TransferFile f, int roomId) async {
+    if (f.bytes == null || f.bytes!.isEmpty) return;
+
+    try {
+      final hash = ChunkedUploadService.computeHash(f.bytes!);
+      final isDup = await _uploadService.isDuplicate(hash, roomId);
+      if (isDup) return;
+
+      final mimeType = _mimeForExt(f.ext);
+      final uploadId = await _uploadService.initUpload(
+          '${f.name}.${f.ext}', f.bytes!.length, mimeType, roomId);
+      _activeUploadId = uploadId;
+
+      await _uploadService.uploadChunks(uploadId, f.bytes!, onProgress: (p) {
+        if (mounted) setState(() => _uploadProgress = p);
+      });
+
+      await _uploadService.completeUpload(uploadId);
+      _activeUploadId = null;
+    } catch (e) {
+      _activeUploadId = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
+  }
+
+  static String _mimeForExt(String ext) {
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'pdf':
+        return 'application/pdf';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'zip':
+        return 'application/zip';
+      case 'doc':
+      case 'docx':
+        return 'application/msword';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   Future<void> _pickFile() async {
@@ -156,6 +350,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
         type: FileType.any,
       );
       if (result == null || result.files.isEmpty) return;
+      _resetBroadcastIfDone();
       setState(() {
         for (final pf in result.files) {
           if (_files.length >= 8) break;
@@ -180,6 +375,7 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
 
   void _removeFile(int index) {
     if (_isBroadcasting) return;
+    _resetBroadcastIfDone();
     setState(() => _files.removeAt(index));
   }
 
@@ -479,14 +675,25 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
               if (_isBroadcasting || _broadcastCtrl.isCompleted)
                 AnimatedBuilder(
                   animation: _broadcastAnim,
-                  builder: (_, __) => BroadcastProgressBar(
-                    percent: _broadcastAnim.value * 100,
-                    peersInRange: widget.peers.length,
-                    speedMbps: _speedMbps,
-                    etaSeconds: ((1.0 - _broadcastCtrl.value) *
-                            _broadcastCtrl.duration!.inSeconds)
-                        .ceil(),
-                  ),
+                  builder: (_, __) {
+                    // Show real progress when we have it; fall back to animation
+                    final realPct = _uploadProgress * 100;
+                    final animPct = _broadcastAnim.value * 100;
+                    final showPct = realPct > 0 ? realPct : animPct;
+                    return BroadcastProgressBar(
+                      percent: showPct,
+                      peersInRange: widget.peers.length,
+                      speedMbps: _speedMbps,
+                      etaSeconds: showPct >= 100
+                          ? 0
+                          : ((1.0 - (showPct / 100)) * 10).ceil(),
+                    );
+                  },
+                )
+              else if (_isReceiving || _receiveComplete)
+                _IncomingTransferCard(
+                  isReceiving: _isReceiving,
+                  receivedBytes: _receivedBytes,
                 )
               else
                 GestureDetector(
@@ -603,3 +810,89 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   }
 }
 
+class _IncomingTransferCard extends StatelessWidget {
+  final bool isReceiving;
+  final int receivedBytes;
+
+  const _IncomingTransferCard({
+    required this.isReceiving,
+    required this.receivedBytes,
+  });
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = !isReceiving;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1F0D),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: done
+              ? Colors.greenAccent.withOpacity(0.4)
+              : Colors.greenAccent.withOpacity(0.25),
+        ),
+      ),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: done ? Colors.greenAccent : Colors.greenAccent.withOpacity(0.7),
+                boxShadow: [
+                  BoxShadow(color: Colors.greenAccent.withOpacity(0.6), blurRadius: 6)
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(done ? 'FILE RECEIVED' : 'INCOMING TRANSFER',
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.greenAccent,
+                    letterSpacing: 2)),
+          ]),
+          Text(_formatBytes(receivedBytes),
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ]),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: done ? 1.0 : null,
+            backgroundColor: Colors.greenAccent.withOpacity(0.12),
+            color: Colors.greenAccent,
+            minHeight: 6,
+          ),
+        ),
+        if (done) ...[
+          const SizedBox(height: 8),
+          Text('Transfer complete — view in FILES tab',
+              style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.greenAccent.withOpacity(0.6),
+                  letterSpacing: 1)),
+        ],
+      ]),
+    );
+  }
+}
+
+class _FileMeta {
+  final String name;
+  final String ext;
+  final int totalSize;
+  const _FileMeta(this.name, this.ext, this.totalSize);
+}

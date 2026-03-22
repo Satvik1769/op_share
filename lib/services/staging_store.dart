@@ -51,6 +51,11 @@ class StagingStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addReceivedFile(ManifestEntry entry) {
+    transferHistory.insert(0, entry);
+    notifyListeners();
+  }
+
   void clearActiveFiles() {
     activeFiles.clear();
     notifyListeners();

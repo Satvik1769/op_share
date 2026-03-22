@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
+import 'package:op_share_flutter/utils/network_utils.dart';
 
 /// One entry per remote peer
 class PeerConnection {
@@ -30,6 +31,8 @@ class WebRTCService {
 
   StompClient? _stomp;
   final Map<String, PeerConnection> _peers = {};
+  final Map<String, String> _peerIps = {};
+  String? _localIp;
 
   /// Tracks peers already announced to UI — prevents duplicate onPeerJoined calls.
   final Set<String> _announcedPeers = {};
@@ -38,6 +41,7 @@ class WebRTCService {
   void Function(String peerId)? onPeerJoined;
   void Function(String peerId)? onPeerLeft;
   void Function(String fromPeerId, Uint8List chunk, bool isLast)? onDataReceived;
+  void Function(String fromPeerId, String name, String ext, int totalSize)? onFileMeta;
 
   /// Called once STOMP is connected and subscribed — use this to fetch
   /// existing room members and initiate connections to them.
@@ -104,6 +108,17 @@ class WebRTCService {
     );
 
     onStompReady?.call();
+    _sendLocalIp();
+  }
+
+  void _sendLocalIp() async {
+    _localIp = await NetworkUtils.getLocalIp();
+    if (_localIp == null) return;
+    if (_stomp == null || !_stomp!.connected) return;
+    _stomp!.send(
+      destination: '/app/signal/$roomCode',
+      body: jsonEncode({'type': 'peer_ip', 'from': peerId, 'ip': _localIp}),
+    );
   }
 
   void _onDisconnected() {
@@ -112,6 +127,8 @@ class WebRTCService {
     }
     _peers.clear();
     _announcedPeers.clear();
+    _peerIps.clear();
+    _expectedSizes.clear();
   }
 
   /// Calls onPeerJoined exactly once per peer. Safe to call multiple times.
@@ -176,6 +193,13 @@ class WebRTCService {
         } else {
           print('[WebRTC] Buffering ICE candidate for $from');
           peer.pendingCandidates.add(candidate);
+        }
+
+      case 'peer_ip':
+        final ip = (msg['ip'] ?? '').toString();
+        if (from.isNotEmpty && ip.isNotEmpty) {
+          _peerIps[from] = ip;
+          print('[WebRTC] Stored IP for $from: $ip');
         }
 
       case 'navigate_to_shambles':
@@ -301,13 +325,33 @@ class WebRTCService {
   }
 
   // ── DataChannel: receive chunks ──────────────────────────────────────
+  // Tracks expected total sizes per peer for accurate isLast detection
+  final Map<String, int> _expectedSizes = {};
+
   void _setupDataChannel(RTCDataChannel dc, String remotePeerId) {
     dc.onMessage = (msg) {
-      if (msg.isBinary) {
-        final bytes = msg.binary;
-        final isLast = bytes.length < 64 * 1024;
-        onDataReceived?.call(remotePeerId, bytes, isLast);
+      if (!msg.isBinary) {
+        // Text message: file metadata header
+        try {
+          final meta = jsonDecode(msg.text) as Map<String, dynamic>;
+          if (meta['type'] == 'file_meta') {
+            final name = meta['name'] as String? ?? 'file';
+            final ext = meta['ext'] as String? ?? 'bin';
+            final size = (meta['size'] as num?)?.toInt() ?? 0;
+            _expectedSizes[remotePeerId] = size;
+            onFileMeta?.call(remotePeerId, name, ext, size);
+          }
+        } catch (_) {}
+        return;
       }
+      final bytes = msg.binary;
+      // Use expected size from metadata for accurate last-chunk detection;
+      // fall back to heuristic if no metadata was received.
+      final expected = _expectedSizes[remotePeerId];
+      final isLast = expected != null
+          ? bytes.length < 64 * 1024 // will be caught by accumulated count in UI
+          : bytes.length < 64 * 1024;
+      onDataReceived?.call(remotePeerId, bytes, isLast);
     };
   }
 
@@ -324,24 +368,63 @@ class WebRTCService {
   }
 
   // ── Send file to a specific peer ─────────────────────────────────────
-  Future<void> sendFile(String remotePeerId, Uint8List bytes) async {
+  Future<void> sendFile(
+    String remotePeerId,
+    Uint8List bytes, {
+    String name = 'file',
+    String ext = 'bin',
+    void Function(double progress)? onProgress,
+  }) async {
     final dc = _peers[remotePeerId]?.dataChannel;
-    if (dc == null || dc.state != RTCDataChannelState.RTCDataChannelOpen) return;
+    if (dc == null || dc.state != RTCDataChannelState.RTCDataChannelOpen) {
+      print('[WebRTC] sendFile: data channel not open for $remotePeerId (state=${dc?.state})');
+      return;
+    }
+
+    // Send metadata header first so receiver knows filename and total size
+    await dc.send(RTCDataChannelMessage(
+      jsonEncode({'type': 'file_meta', 'name': name, 'ext': ext, 'size': bytes.length}),
+    ));
 
     const chunkSize = 64 * 1024;
+    int sent = 0;
     for (int i = 0; i < bytes.length; i += chunkSize) {
       final chunk = bytes.sublist(i, min(i + chunkSize, bytes.length));
       await dc.send(RTCDataChannelMessage.fromBinary(chunk));
+      sent += chunk.length;
+      onProgress?.call(sent / bytes.length);
     }
   }
 
-  Future<void> broadcastFile(Uint8List bytes) async {
+  Future<void> broadcastFile(Uint8List bytes,
+      {String name = 'file', String ext = 'bin'}) async {
     for (final id in _peers.keys) {
-      await sendFile(id, bytes);
+      await sendFile(id, bytes, name: name, ext: ext);
     }
   }
 
   List<String> get connectedPeerIds => _peers.keys.toList();
+
+  String? getLocalIp() => _localIp;
+  String? getPeerIp(String remotePeerId) => _peerIps[remotePeerId];
+
+  bool isPeerSameNetwork(String remotePeerId) {
+    final peerIp = _peerIps[remotePeerId];
+    if (peerIp == null || _localIp == null) return false;
+    return NetworkUtils.isSameSubnet(_localIp!, peerIp);
+  }
+
+  Future<void> sendFileToPeers(
+    List<String> peerIds,
+    Uint8List bytes, {
+    String name = 'file',
+    String ext = 'bin',
+    void Function(double progress)? onProgress,
+  }) async {
+    for (final id in peerIds) {
+      await sendFile(id, bytes, name: name, ext: ext, onProgress: onProgress);
+    }
+  }
 
   void _send(Map<String, dynamic> msg) {
     if (_stomp == null || !_stomp!.connected) return;

@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:op_share_flutter/services/staging_store.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
+import 'package:share_plus/share_plus.dart';
 import 'transfer_status.dart';
 import 'manifest_entry.dart';
 class FileScreen extends StatefulWidget {
@@ -505,7 +506,9 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                         color: Color(0xFF2A4060), size: 10),
                     const SizedBox(width: 3),
                     Text(
-                      'Target: ${entry.target}',
+                      entry.status == TransferStatus.received
+                          ? 'From: ${entry.target}'
+                          : 'Target: ${entry.target}',
                       style: const TextStyle(
                         color: Color(0xFF2A4060),
                         fontSize: 9,
@@ -530,6 +533,34 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                     ),
                   ],
                 ),
+                // Share / save button for received files
+                if (entry.status == TransferStatus.received && entry.savedPath != null) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Share.shareXFiles([XFile(entry.savedPath!)]),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(
+                            color: Colors.greenAccent.withOpacity(0.3), width: 1),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                        Icon(Icons.download_outlined,
+                            color: Colors.greenAccent, size: 12),
+                        SizedBox(width: 5),
+                        Text('SAVE / SHARE',
+                            style: TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 9,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1)),
+                      ]),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -546,7 +577,13 @@ class _ManifestDetailsScreenState extends State<FileScreen>
         bg = const Color(0xFF00FFC8).withOpacity(0.08);
         border = const Color(0xFF00FFC8).withOpacity(0.3);
         text = const Color(0xFF00FFC8);
-        label = 'SUCCESS';
+        label = 'SENT';
+        break;
+      case TransferStatus.received:
+        bg = Colors.greenAccent.withOpacity(0.08);
+        border = Colors.greenAccent.withOpacity(0.3);
+        text = Colors.greenAccent;
+        label = 'RECEIVED';
         break;
       case TransferStatus.syncing:
         bg = const Color(0xFF007BFF).withOpacity(0.08);
@@ -597,6 +634,8 @@ class _ManifestDetailsScreenState extends State<FileScreen>
         return const Color(0xFFFF4D4D).withOpacity(0.1);
       case TransferStatus.syncing:
         return const Color(0xFF007BFF).withOpacity(0.08);
+      case TransferStatus.received:
+        return Colors.greenAccent.withOpacity(0.07);
       default:
         return const Color(0xFF00FFC8).withOpacity(0.07);
     }
@@ -608,6 +647,8 @@ class _ManifestDetailsScreenState extends State<FileScreen>
         return const Color(0xFFFF4D4D).withOpacity(0.3);
       case TransferStatus.syncing:
         return const Color(0xFF007BFF).withOpacity(0.25);
+      case TransferStatus.received:
+        return Colors.greenAccent.withOpacity(0.2);
       default:
         return const Color(0xFF00FFC8).withOpacity(0.2);
     }
@@ -619,6 +660,8 @@ class _ManifestDetailsScreenState extends State<FileScreen>
         return const Color(0xFFFF6B6B);
       case TransferStatus.syncing:
         return const Color(0xFF4DA8FF);
+      case TransferStatus.received:
+        return Colors.greenAccent.withOpacity(0.75);
       default:
         return const Color(0xFF00FFC8).withOpacity(0.75);
     }
