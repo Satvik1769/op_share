@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:op_share_flutter/services/staging_store.dart';
 import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
-import 'package:share_plus/share_plus.dart';
 import 'transfer_status.dart';
 import 'manifest_entry.dart';
 class FileScreen extends StatefulWidget {
@@ -68,6 +69,40 @@ class _ManifestDetailsScreenState extends State<FileScreen>
     _progressController2.dispose();
     _fabPulseController.dispose();
     super.dispose();
+  }
+
+  static const _imageExts = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'};
+
+  Future<void> _saveFile(BuildContext ctx, String path, String filename) async {
+    final ext = filename.contains('.')
+        ? filename.split('.').last.toLowerCase()
+        : '';
+    try {
+      if (_imageExts.contains(ext)) {
+        // Save image directly to the device gallery (Camera Roll on iOS)
+        await Gal.putImage(path, album: 'Op Share');
+        if (ctx.mounted) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(content: Text('Saved to gallery')),
+          );
+        }
+      } else {
+        // For other file types, open with the native app
+        // (e.g. PDF viewer, audio player) — user can save from there
+        final result = await OpenFilex.open(path);
+        if (result.type != ResultType.done && ctx.mounted) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            SnackBar(content: Text('Cannot open file: ${result.message}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -533,11 +568,11 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                     ),
                   ],
                 ),
-                // Share / save button for received files
+                // Save button for received files
                 if (entry.status == TransferStatus.received && entry.savedPath != null) ...[
                   const SizedBox(height: 8),
                   GestureDetector(
-                    onTap: () => Share.shareXFiles([XFile(entry.savedPath!)]),
+                    onTap: () => _saveFile(context, entry.savedPath!, entry.filename),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
@@ -546,11 +581,11 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                         border: Border.all(
                             color: Colors.greenAccent.withOpacity(0.3), width: 1),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.download_outlined,
                             color: Colors.greenAccent, size: 12),
                         SizedBox(width: 5),
-                        Text('SAVE / SHARE',
+                        Text('SAVE TO DEVICE',
                             style: TextStyle(
                                 color: Colors.greenAccent,
                                 fontSize: 9,
