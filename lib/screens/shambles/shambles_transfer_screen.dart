@@ -4,10 +4,10 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
-import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
-import 'package:op_share_flutter/services/chunked_upload_service.dart';
-import 'package:op_share_flutter/services/staging_store.dart';
+import 'package:opShare/screens/room_intitiation/colors_room.dart';
+import 'package:opShare/screens/shambles/transfer_file.dart';
+import 'package:opShare/services/chunked_upload_service.dart';
+import 'package:opShare/services/staging_store.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../file_screen/file_screen.dart';
@@ -57,7 +57,6 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
   String? _activeUploadId;
 
   bool _isBroadcasting = false;
-  bool _isApiUploading = false;
   bool _isPicking = false;
   double _uploadProgress = 0;
   double _speedMbps = 0;
@@ -229,7 +228,6 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
     if (_isBroadcasting || _files.isEmpty) return;
     setState(() {
       _isBroadcasting = true;
-      _isApiUploading = false;
       _uploadProgress = 0;
       _speedMbps = 0;
       _etaSeconds = 0;
@@ -302,11 +300,9 @@ class _ShamblesTransferScreenState extends State<ShamblesTransferScreen>
         .where((p) => !connectedPeerIds.contains(p.peerName))
         .toList();
     if (notConnected.isNotEmpty) {
-      if (mounted) setState(() => _isApiUploading = true);
       for (final f in _files) {
         await _uploadViaApi(f, roomId);
       }
-      if (mounted) setState(() => _isApiUploading = false);
     }
   }
 

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
-import 'package:op_share_flutter/utils/network_utils.dart';
+import 'package:opShare/utils/network_utils.dart';
 
 /// One entry per remote peer
 class PeerConnection {

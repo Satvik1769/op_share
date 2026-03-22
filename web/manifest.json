@@ -1,6 +1,6 @@
 {
-    "name": "op_share_flutter",
-    "short_name": "op_share_flutter",
+    "name": "opShare",
+    "short_name": "opShare",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

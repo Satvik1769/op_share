@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import 'package:op_share_flutter/screens/auth_screens/contact_screen/phone_formatter.dart';
+import 'package:opShare/screens/auth_screens/contact_screen/phone_formatter.dart';
 import '../../../main.dart';
 import '../../room_intitiation/top_status_bar.dart';
 import '../colors.dart';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:op_share_flutter/config/env_config.dart';
-import 'package:op_share_flutter/screens/auth_screens/contact_screen/contact_screen.dart';
+import 'package:opShare/config/env_config.dart';
+import 'package:opShare/screens/auth_screens/contact_screen/contact_screen.dart';
 
 late final EnvConfig appConfig;
 String authToken = '';

@@ -2,8 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:op_share_flutter/services/staging_store.dart';
-import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
+import 'package:opShare/services/staging_store.dart';
+import 'package:opShare/screens/shambles/transfer_file.dart';
 import 'transfer_status.dart';
 import 'manifest_entry.dart';
 class FileScreen extends StatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'radar_node.dart';
 import 'dart:math';
-import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
+import 'package:opShare/screens/room_intitiation/colors_room.dart';
 
 
 class NodeAvatar extends StatelessWidget {

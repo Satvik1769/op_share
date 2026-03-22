@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
-import 'package:op_share_flutter/main.dart';
+import 'package:opShare/main.dart';
 
 class ChunkedUploadService {
   static const int _chunkSize = 512 * 1024; // 512 KB

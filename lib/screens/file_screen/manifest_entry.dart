@@ -1,4 +1,4 @@
-import 'package:op_share_flutter/screens/file_screen/transfer_status.dart';
+import 'package:opShare/screens/file_screen/transfer_status.dart';
 
 class ManifestEntry {
   final String filename;

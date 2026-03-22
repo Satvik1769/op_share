@@ -1,5 +1,5 @@
-import 'package:op_share_flutter/config/env_config.dart';
-import 'package:op_share_flutter/main.dart';
+import 'package:opShare/config/env_config.dart';
+import 'package:opShare/main.dart';
 import 'package:flutter/material.dart';
 
 void main() {

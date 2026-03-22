@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:op_share_flutter/screens/room_intitiation/colors_room.dart';
+import 'package:opShare/screens/room_intitiation/colors_room.dart';
 
 
 class NavItem extends StatelessWidget {

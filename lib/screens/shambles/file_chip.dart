@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:op_share_flutter/screens/shambles/transfer_file.dart';
+import 'package:opShare/screens/shambles/transfer_file.dart';
 
 import '../room_intitiation/colors_room.dart';
 import 'file_status.dart';

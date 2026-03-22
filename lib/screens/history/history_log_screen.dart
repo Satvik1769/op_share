@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:op_share_flutter/screens/file_screen/manifest_entry.dart';
-import 'package:op_share_flutter/screens/file_screen/transfer_status.dart';
-import 'package:op_share_flutter/services/staging_store.dart';
+import 'package:opShare/screens/file_screen/manifest_entry.dart';
+import 'package:opShare/screens/file_screen/transfer_status.dart';
+import 'package:opShare/services/staging_store.dart';
 import 'log_entry.dart';
 import 'log_status.dart';
 
