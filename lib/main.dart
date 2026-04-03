@@ -6,6 +6,7 @@ import 'package:opShare/screens/auth_screens/contact_screen/contact_screen.dart'
 late final EnvConfig appConfig;
 String authToken = '';
 String currentUserId = '';
+String deviceId = '';
 
 void main() {
   appConfig = EnvConfig.prod;

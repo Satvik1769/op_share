@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -125,12 +127,25 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
   }
 
 
+  Future<String> _getDeviceId() async {
+    final info = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      final android = await info.androidInfo;
+      return android.id;
+    } else if (Platform.isIOS) {
+      final ios = await info.iosInfo;
+      return ios.identifierForVendor ?? '';
+    }
+    return '';
+  }
+
   Future<void> verifyOtp() async {
     final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
+    deviceId = await _getDeviceId();
     final res = await http.post(
       Uri.parse('${appConfig.baseUrl}/auth/verify-otp'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'contactNumber': '$digits', 'otpCode': _otpValue}),
+      body: jsonEncode({'contactNumber': '$digits', 'otpCode': _otpValue, 'deviceId': deviceId}),
     );
     if (res.statusCode != 200) throw Exception('OTP verification failed');
     final data = jsonDecode(res.body) as Map<String, dynamic>;

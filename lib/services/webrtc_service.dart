@@ -116,12 +116,12 @@ class WebRTCService {
 
   void _sendLocalIp() async {
     _localIp = await NetworkUtils.getLocalIp();
+    // IP is cached; sent directly to each peer via _sendIpToPeer when connecting.
+  }
+
+  void _sendIpToPeer(String remotePeerId) {
     if (_localIp == null) return;
-    if (_stomp == null || !_stomp!.connected) return;
-    _stomp!.send(
-      destination: '/app/signal/$roomCode',
-      body: jsonEncode({'type': 'peer_ip', 'from': peerId, 'ip': _localIp}),
-    );
+    _send({'type': 'peer_ip', 'to': remotePeerId, 'from': peerId, 'ip': _localIp});
   }
 
   void _onDisconnected() {
@@ -297,6 +297,7 @@ class WebRTCService {
     await pc.setLocalDescription(offer);
 
     _send({'type': 'offer', 'to': remotePeerId, 'sdp': offer.sdp});
+    _sendIpToPeer(remotePeerId);
   }
 
   // ── Receiver: handle offer, send answer ─────────────────────────────
@@ -333,6 +334,7 @@ class WebRTCService {
     await pc.setLocalDescription(answer);
 
     _send({'type': 'answer', 'to': remotePeerId, 'sdp': answer.sdp});
+    _sendIpToPeer(remotePeerId);
 
     // Answerer side: announce once answer is sent
     _announceJoined(remotePeerId);
