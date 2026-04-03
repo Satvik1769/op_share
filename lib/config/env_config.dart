@@ -18,12 +18,12 @@ class EnvConfig {
   static const uat = EnvConfig(
     flavor: 'uat',
     appName: 'OpShare UAT',
-    baseUrl: 'http://136.115.126.210:8080',
+    baseUrl: 'http://34.60.181.59:8080',
   );
 
   static const prod = EnvConfig(
     flavor: 'prod',
     appName: 'OpShare',
-    baseUrl: 'http://136.115.126.210:8080',
+    baseUrl: 'http://34.60.181.59:8080',
   );
 }
