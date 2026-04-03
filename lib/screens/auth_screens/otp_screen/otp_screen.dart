@@ -130,7 +130,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
     final res = await http.post(
       Uri.parse('${appConfig.baseUrl}/auth/verify-otp'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phoneNumber': '+91$digits', 'otp': _otpValue}),
+      body: jsonEncode({'contactNumber': '$digits', 'otpCode': _otpValue}),
     );
     if (res.statusCode != 200) throw Exception('OTP verification failed');
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -146,7 +146,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen>
       await http.post(
         Uri.parse('${appConfig.baseUrl}/auth/send-otp'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phoneNumber': '+91$digits'}),
+        body: jsonEncode({'contactNumber': '$digits'}),
       );
     } catch (_) {}
   }

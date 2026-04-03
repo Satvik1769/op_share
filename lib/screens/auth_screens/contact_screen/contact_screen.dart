@@ -96,7 +96,7 @@ class _AuthRequestScreenState extends State<AuthRequestScreen>
       final res = await http.post(
         Uri.parse('${appConfig.baseUrl}/auth/send-otp'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'phoneNumber': '+91$digits'}),
+        body: jsonEncode({'contactNumber': '$digits'}),
       );
       if (!mounted) return;
       if (res.statusCode == 200) {
