@@ -137,13 +137,6 @@ class _ManifestDetailsScreenState extends State<FileScreen>
                 ),
               ],
             ),
-            // FAB
-            Positioned(
-              bottom: 70,
-              left: 0,
-              right: 0,
-              child: Center(child: _buildFab()),
-            ),
           ],
         ),
       ),
@@ -702,39 +695,5 @@ class _ManifestDetailsScreenState extends State<FileScreen>
     }
   }
 
-  // ─── FAB ──────────────────────────────────────────────────────────────────
-
-  Widget _buildFab() {
-    return AnimatedBuilder(
-      animation: _fabPulse,
-      builder: (_, child) {
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00FFC8).withOpacity(0.35 * _fabPulse.value),
-                blurRadius: 24,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: GestureDetector(
-        onTap: () {},
-        child: Container(
-          width: 52,
-          height: 52,
-          decoration: const BoxDecoration(
-            color: Color(0xFF00FFC8),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.add, color: Color(0xFF050A0F), size: 26),
-        ),
-      ),
-    );
-  }
 
 }
